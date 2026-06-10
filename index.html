@@ -96,7 +96,21 @@
   .tray summary { cursor: pointer; color: var(--ink-dim); font-size: 13px; }
   .tray .note { color: var(--ink-faint); font-size: 12px; margin: 6px 0 12px; }
 
-  .toast { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); background: var(--panel2); border: 1px solid var(--line); padding: 9px 16px; border-radius: 8px; font-size: 13px; box-shadow: 0 6px 24px #0008; }
+  .toast { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); background: var(--panel2); border: 1px solid var(--line); padding: 9px 16px; border-radius: 8px; font-size: 13px; box-shadow: 0 6px 24px #0008; max-width: 70vw; }
+
+  /* ---------- Card status control (slice 2 — Write Pattern 1) ---------- */
+  .cardact { margin-top: 7px; display: flex; align-items: center; gap: 6px; }
+  .cardact .lbl { color: var(--ink-faint); font-size: 10.5px; text-transform: uppercase; letter-spacing: .4px; }
+  select.statussel { padding: 2px 5px; font-size: 11.5px; flex: 1; min-width: 0; }
+  select.statussel:hover { border-color: var(--accent); }
+
+  /* ---------- Modal (flip confirm + re-apply) ---------- */
+  .modal-bg { position: fixed; inset: 0; background: #000a; display: flex; align-items: center; justify-content: center; z-index: 50; }
+  .modal { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px 20px; max-width: 460px; width: calc(100% - 40px); box-shadow: 0 10px 40px #000b; }
+  .modal h3 { margin: 0 0 10px; font-size: 16px; }
+  .modal .body { color: var(--ink-dim); font-size: 13px; line-height: 1.5; }
+  .modal .commit { display: block; margin: 12px 0; background: #00000044; border: 1px solid var(--line); border-radius: 6px; padding: 7px 9px; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12px; color: var(--ink); word-break: break-all; }
+  .modal .acts { display: flex; justify-content: flex-end; gap: 10px; margin-top: 16px; }
 </style>
 </head>
 <body>
@@ -186,6 +200,16 @@
 </div>
 
 <div class="toast hidden" id="toast"></div>
+<div class="modal-bg hidden" id="modal-bg">
+  <div class="modal" role="dialog" aria-modal="true">
+    <h3 id="modal-title"></h3>
+    <div class="body" id="modal-body"></div>
+    <div class="acts">
+      <button id="modal-cancel">Cancel</button>
+      <button class="primary" id="modal-ok">Confirm</button>
+    </div>
+  </div>
+</div>
 
 <!-- ====================================================================== -->
 <!-- CORE: pure functions only (no DOM, no network). Mirror-tested in Node  -->
@@ -383,7 +407,44 @@
     return out;
   }
 
-  var api = { mapStatus: mapStatus, parse: parse, serialize: serialize, indexLines: indexLines, normPrio: normPrio };
+  // ---- Write Pattern 1 primitives (Phase 1 Spec §B.2.2) ----
+  // All three are pure: they push a targeted edit onto model.edits. serialize()
+  // then flips exactly that one span, leaving the other ~99% byte-for-byte.
+
+  // Locate a parsed record by id across all pools.
+  function findRecord(model, id) {
+    var pools = [model.topLevel, model.ops, model.decisions, model.resolved, model.cbs];
+    for (var p = 0; p < pools.length; p++)
+      for (var i = 0; i < pools[p].length; i++)
+        if (pools[p][i].id === id) return pools[p][i];
+    return null;
+  }
+
+  // Flip the status cell of one row. `styledToken` is the file-native, fully
+  // styled replacement (e.g. "`complete`" for the word vocab, "✅" for emoji).
+  // The cell's surrounding whitespace is preserved so only the token moves.
+  function setStatus(model, id, styledToken) {
+    var rec = findRecord(model, id);
+    if (!rec || !rec.statusRange) return false;
+    var raw = model.raw.slice(rec.statusRange.start, rec.statusRange.end);
+    var lead = (raw.match(/^\s*/) || [""])[0];
+    var trail = (raw.match(/\s*$/) || [""])[0];
+    model.edits.push({ start: rec.statusRange.start, end: rec.statusRange.end, value: lead + styledToken + trail });
+    return true;
+  }
+
+  // Bump the §preamble "**Last updated:** YYYY-MM-DD" date in place (date token only).
+  function bumpLastUpdated(model, dateStr) {
+    var re = /(\*\*Last updated:\*\*\s*)(\d{4}-\d{2}-\d{2})/;
+    var m = re.exec(model.raw);
+    if (!m) { model.warnings.push("Last updated line not found"); return false; }
+    var start = m.index + m[1].length, end = start + m[2].length;
+    if (model.raw.slice(start, end) === dateStr) return true; // already today: no-op edit
+    model.edits.push({ start: start, end: end, value: dateStr });
+    return true;
+  }
+
+  var api = { mapStatus: mapStatus, parse: parse, serialize: serialize, indexLines: indexLines, normPrio: normPrio, findRecord: findRecord, setStatus: setStatus, bumpLastUpdated: bumpLastUpdated };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   root.Plexus = api;
 })(typeof globalThis !== "undefined" ? globalThis : this);
@@ -401,12 +462,28 @@
   var OWNER = "TGragg89";
   var DATA_REPO = "plexus-bucket-d";
   var OPS_FILES = [
-    { path: "ops/plexus_operations.md", project: "Plexus", tag: "Plexus", color: "#8957e5" },
-    { path: "ops/laser_cutting_operations.md", project: "Laser Cutting", tag: "Laser", color: "#e3603a" }
+    { path: "ops/plexus_operations.md", project: "Plexus", tag: "Plexus", color: "#8957e5", vocab: "word" },
+    { path: "ops/laser_cutting_operations.md", project: "Laser Cutting", tag: "Laser", color: "#e3603a", vocab: "emoji" }
   ];
   var PROJECT_COLORS = { "Plexus": "#8957e5", "Laser Cutting": "#e3603a" };
-  var TOK_KEY = "plexus_pat", TOK_AT = "plexus_pat_at", VIEW_KEY = "plexus_view";
+  var TOK_KEY = "plexus_pat", TOK_AT = "plexus_pat_at", VIEW_KEY = "plexus_view", PEND_KEY = "plexus_pending_write";
   var PAT_TTL_DAYS = 90;
+
+  // File-native status vocabularies (Phase 1 Spec §A.3.2, reverse direction).
+  // `token` maps a canonical column -> the file's own styled status token. Only
+  // columns a file's vocabulary can represent are offered as write targets;
+  // Ready / In Review have no native token in the pilot pair's vocabularies.
+  var VOCABS = {
+    word: {
+      order: ["Backlog", "In Progress", "Blocked", "Cancelled", "Done"],
+      token: { "Backlog": "`pending`", "In Progress": "`inprogress`", "Blocked": "`blocked`", "Cancelled": "`skipped`", "Done": "`complete`" }
+    },
+    emoji: {
+      order: ["Backlog", "In Progress", "Blocked", "Cancelled", "Done"],
+      token: { "Backlog": "🔲", "In Progress": "🔄", "Blocked": "🚩", "Cancelled": "❌", "Done": "✅" }
+    }
+  };
+  function today() { return new Date().toISOString().slice(0, 10); }
 
   // ---- DOM helpers ----
   function $(id) { return document.getElementById(id); }
@@ -444,20 +521,52 @@
   function showSetup() { $("app").style.display = "none"; $("setup").style.display = "block"; }
   function showApp() { $("setup").style.display = "none"; $("app").style.display = "flex"; }
 
+  // ---- Byte-faithful base64 <-> UTF-8 (transport must not corrupt the blob) ----
+  function b64ToText(b64) {
+    var bin = atob(String(b64).replace(/\s/g, ""));
+    var bytes = new Uint8Array(bin.length);
+    for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    return new TextDecoder("utf-8").decode(bytes);
+  }
+  function textToB64(text) {
+    var bytes = new TextEncoder().encode(text);
+    var bin = "";
+    for (var i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+    return btoa(bin);
+  }
+
   // ---- GitHub contents API ----
   var etags = {};
+  var GH_HDRS = function (token) {
+    return { "Authorization": "Bearer " + token, "Accept": "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28" };
+  };
+  // Read: JSON mode so we capture the blob `sha` at load time. That cached sha
+  // is the optimistic-locking token — a write with it is rejected if the file
+  // changed underneath since the user loaded (Path B §3.4).
   function ghGet(path, token) {
     var url = "https://api.github.com/repos/" + OWNER + "/" + DATA_REPO + "/contents/" + path;
-    var headers = { "Authorization": "Bearer " + token, "Accept": "application/vnd.github.raw+json" };
+    var headers = GH_HDRS(token);
     if (etags[path]) headers["If-None-Match"] = etags[path];
     return fetch(url, { headers: headers }).then(function (res) {
       if (res.status === 304) return { notModified: true };
       if (res.status === 401) { var e = new Error("Token rejected (401)"); e.auth = true; throw e; }
-      if (res.status === 404) { var e2 = new Error("Not found: " + path + " (404)"); throw e2; }
+      if (res.status === 404) { throw new Error("Not found: " + path + " (404)"); }
       if (!res.ok) throw new Error("GitHub " + res.status + " for " + path);
       var et = res.headers.get("ETag"); if (et) etags[path] = et;
-      // raw+json returns the raw file body as text
-      return res.text().then(function (body) { return { body: body }; });
+      return res.json().then(function (j) { return { body: b64ToText(j.content || ""), sha: j.sha }; });
+    });
+  }
+  // Write: whole-file PUT with the cached sha. 409/422 => stale sha (conflict).
+  function ghPut(path, token, text, sha, message) {
+    var url = "https://api.github.com/repos/" + OWNER + "/" + DATA_REPO + "/contents/" + path;
+    return fetch(url, {
+      method: "PUT", headers: GH_HDRS(token),
+      body: JSON.stringify({ message: message, content: textToB64(text), sha: sha })
+    }).then(function (res) {
+      if (res.status === 401) { var e = new Error("Token rejected (401)"); e.auth = true; throw e; }
+      if (res.status === 409 || res.status === 422) { var e2 = new Error("Stale SHA (" + res.status + ")"); e2.conflict = true; throw e2; }
+      if (!res.ok) return res.text().then(function (t) { throw new Error("PUT " + res.status + ": " + t.slice(0, 200)); });
+      return res.json();
     });
   }
 
@@ -473,13 +582,14 @@
     var token = info.token;
     Promise.all(OPS_FILES.map(function (f) {
       return ghGet(f.path, token).then(function (r) {
-        if (!r.notModified) STATE.files[f.path] = { meta: f, model: P.parse(r.body) };
+        if (!r.notModified) STATE.files[f.path] = { meta: f, model: P.parse(r.body), sha: r.sha };
         return true;
       });
     })).then(function () {
       STATE.lastLoaded = Date.now();
       setStatus("");
       render();
+      maybeOfferReapply();
     }).catch(function (err) {
       if (err.auth) { setStatus("token rejected"); showSetup(); toast("Token rejected — please re-enter."); return; }
       setStatus("error"); toast(err.message);
@@ -523,6 +633,7 @@
     var c = {};
     for (var key in rec) c[key] = rec[key];
     c.project = meta.project; c.projTag = meta.tag; c.color = meta.color || PROJECT_COLORS[meta.project] || "#555";
+    c.filePath = meta.path; c.vocab = meta.vocab;
     c.swim = rec.type === "Bet" ? "Bets" : rec.type === "Maintenance Loop" ? "Maintenance Loops" : (rec.kind === "EP" ? "Epics" : "Epics");
     return c;
   }
@@ -649,6 +760,25 @@
       foot.appendChild(el("span", null, kids.length + " children · " + closed + " closed"));
     }
     card.appendChild(foot);
+    // Status control (slice 2) — only when the file's vocabulary is known.
+    var voc = VOCABS[c.vocab];
+    if (voc && c.statusRange) {
+      var act = el("div", "cardact");
+      act.appendChild(el("span", "lbl", "Status"));
+      var sel = el("select", "statussel");
+      sel.setAttribute("data-path", c.filePath);
+      sel.setAttribute("data-id", c.id);
+      var opts = voc.order.slice();
+      if (opts.indexOf(c.status) < 0) opts.unshift(c.status); // show current even if not a write target
+      opts.forEach(function (col) {
+        var o = el("option", null, col); o.value = col;
+        if (col === c.status) o.selected = true;
+        if (!voc.token[col]) o.disabled = true; // not representable in this file's vocab
+        sel.appendChild(o);
+      });
+      act.appendChild(sel);
+      card.appendChild(act);
+    }
     return card;
   }
 
@@ -696,6 +826,134 @@
   $("reload-btn").addEventListener("click", function () { loadAll(); });
   $("saveview-btn").addEventListener("click", function () {
     var F = readFilters(); localStorage.setItem(VIEW_KEY, JSON.stringify(F)); toast("View saved.");
+  });
+
+  // ===================== WRITER (slice 2 — Write Pattern 1) =====================
+
+  // ---- Modal confirm (promise-based) ----
+  function confirmModal(title, bodyNodes, okLabel) {
+    return new Promise(function (resolve) {
+      $("modal-title").textContent = title;
+      var body = $("modal-body"); body.innerHTML = "";
+      (Array.isArray(bodyNodes) ? bodyNodes : [bodyNodes]).forEach(function (n) {
+        body.appendChild(typeof n === "string" ? document.createTextNode(n) : n);
+      });
+      $("modal-ok").textContent = okLabel || "Confirm";
+      var bg = $("modal-bg");
+      function close(val) {
+        bg.classList.add("hidden");
+        $("modal-ok").onclick = null; $("modal-cancel").onclick = null; document.onkeydown = null;
+        resolve(val);
+      }
+      $("modal-ok").onclick = function () { close(true); };
+      $("modal-cancel").onclick = function () { close(false); };
+      document.onkeydown = function (e) { if (e.key === "Escape") close(false); };
+      bg.classList.remove("hidden");
+    });
+  }
+
+  // ---- Pending write (survives 401 / reload per §8 risk 5) ----
+  function savePending(p) { try { localStorage.setItem(PEND_KEY, JSON.stringify(p)); } catch (e) {} }
+  function getPending() { try { return JSON.parse(localStorage.getItem(PEND_KEY) || "null"); } catch (e) { return null; } }
+  function clearPending() { localStorage.removeItem(PEND_KEY); }
+
+  // After a (re)load, offer to re-apply an edit that a prior 401 interrupted.
+  function maybeOfferReapply() {
+    var p = getPending();
+    if (!p) return;
+    var f = STATE.files[p.path];
+    var rec = f && P.findRecord(f.model, p.id);
+    if (!rec) { clearPending(); return; }
+    if (rec.status === p.target) { clearPending(); return; } // already there
+    var msg = el("span", "commit", commitMsg(p.id, p.target));
+    confirmModal("Re-apply your pending change?",
+      ["Your change to " + p.id + " (" + rec.status + " → " + p.target + ") was interrupted earlier and not written. Re-apply it now?", msg],
+      "Re-apply").then(function (ok) {
+      if (ok) flip(p.path, p.id, p.target); else clearPending();
+    });
+  }
+
+  function commitMsg(id, targetCol) { return "bucket-d: status-flip " + id + " → " + targetCol; }
+
+  // ---- The flip: parse -> edit one row + Last updated -> serialize -> PUT ----
+  function flip(path, id, targetCol, selEl) {
+    var f = STATE.files[path];
+    if (!f) { toast("File not loaded: " + path); return; }
+    var rec = P.findRecord(f.model, id);
+    if (!rec) { toast("Row not found: " + id); return; }
+    if (rec.status === targetCol) return; // no-op
+    var voc = VOCABS[f.meta.vocab];
+    var styled = voc && voc.token[targetCol];
+    if (!styled) { toast(targetCol + " has no status token in " + f.meta.project + "'s vocabulary."); resetSel(selEl, rec.status); return; }
+
+    var info = getToken();
+    if (!info || info.expired) { showSetup(); toast("Token missing/expired — reconnect, then re-apply."); return; }
+
+    var fromCol = rec.status, msg = commitMsg(id, targetCol);
+    var cmt = el("span", "commit", msg);
+    confirmModal("Flip status — " + id,
+      [f.meta.project + ": move " + id + " from “" + fromCol + "” to “" + targetCol + "”. This commits a whole-file write to plexus-bucket-d:", cmt,
+        "The §preamble “Last updated” is bumped in the same write. Nothing else changes."],
+      "Commit flip").then(function (ok) {
+      if (!ok) { resetSel(selEl, fromCol); return; }
+      doWrite(path, id, targetCol, styled, msg, fromCol, selEl);
+    });
+  }
+
+  function doWrite(path, id, targetCol, styled, msg, fromCol, selEl) {
+    var f = STATE.files[path];
+    // Build new content from a FRESH parse of the cached raw (edits start empty).
+    var m2 = P.parse(f.model.raw);
+    if (!P.setStatus(m2, id, styled)) { toast("Could not locate status cell for " + id); resetSel(selEl, fromCol); return; }
+    P.bumpLastUpdated(m2, today());
+    var newText = P.serialize(m2);
+
+    // Persist intent so a 401 mid-write doesn't lose it (§8 risk 5).
+    savePending({ path: path, id: id, target: targetCol });
+    setStatus("writing " + id + "…");
+    var token = getToken().token;
+
+    ghPut(path, token, newText, f.sha, msg).then(function (resp) {
+      clearPending();
+      // Adopt the freshly committed bytes + new sha; drop ETag so Reload re-fetches.
+      f.model = P.parse(newText);
+      f.sha = (resp && resp.content && resp.content.sha) || f.sha;
+      delete etags[path];
+      var shortSha = (resp && resp.commit && resp.commit.sha) ? resp.commit.sha.slice(0, 7) : "";
+      setStatus("");
+      render();
+      toast("Committed " + (shortSha ? shortSha + " — " : "") + id + " → " + targetCol);
+    }).catch(function (err) {
+      if (err.auth) {
+        // Fail soft to setup; pending edit is preserved and re-offered after reconnect.
+        forgetToken();
+        setStatus("token rejected");
+        showSetup();
+        toast("Token rejected — reconnect; your change to " + id + " is saved and will be offered again.");
+        return;
+      }
+      if (err.conflict) {
+        // Stale sha: refuse, re-fetch latest, ask the user to re-apply. Never overwrite.
+        clearPending();
+        setStatus("conflict — reloading");
+        toast(id + " NOT written — the file changed on the server since you loaded it. Reloading the latest; please re-apply your change.");
+        loadAll();
+        return;
+      }
+      clearPending();
+      setStatus("write error");
+      resetSel(selEl, fromCol);
+      toast("Write failed: " + err.message);
+    });
+  }
+
+  function resetSel(selEl, col) { if (selEl) selEl.value = col; }
+
+  // Delegated change handler for the per-card status selects.
+  document.addEventListener("change", function (ev) {
+    var t = ev.target;
+    if (!t || !t.classList || !t.classList.contains("statussel")) return;
+    flip(t.getAttribute("data-path"), t.getAttribute("data-id"), t.value, t);
   });
 
   // ---- boot ----
