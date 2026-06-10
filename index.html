@@ -286,7 +286,7 @@
     for (i = 0; i < lines.length; i++) {
       line = lines[i]; raw = line.raw;
       var ms = raw.match(/^##\s+(.*)$/);
-      var msub = raw.match(/^###\s+(.*)$/);
+      var msub = raw.match(/^#{3,}\s+(.*)$/); // h3 or deeper = sub-section
       if (ms && !msub) { curSection = ms[1].trim(); curSub = null; continue; }
       if (msub) { curSub = msub[1].trim(); continue; }
 
@@ -306,6 +306,10 @@
         var srcCol = colIndex(header, "source");
         var decCol = colIndex(header, "decision");
         var prioCol2 = prioCol; // active-backlog tables put priority before status
+
+        // parent ref from the sub-section header: "### Foo (parent: EP-001)"
+        var parentId = "";
+        if (curSub) { var _pm = curSub.match(/\(parent:\s*((?:EP|BT|ML)-\d{3})\)/); if (_pm) parentId = _pm[1]; }
 
         // consume data rows
         for (i2 = i + 2; i2 < lines.length; i2++) {
@@ -328,6 +332,7 @@
               priority: normPrio(get(prioCol)),
               cycle: get(cycleCol), address: get(addrCol),
               blockedBy: get(blockedCol), notes: get(noteCol), source: get(srcCol),
+              parentId: parentId,
               line: i2, statusRange: statusCell ? { start: statusCell.start, end: statusCell.end } : null
             };
             if (kind === "EP" || kind === "BT" || kind === "ML") {
@@ -350,6 +355,7 @@
               status: mapStatus(statusCell ? statusCell.text : ""),
               priority: normPrio(get(prioCol)), cycle: "", address: get(addrCol),
               blockedBy: "", notes: get(noteCol), source: "",
+              parentId: parentId,
               line: i2, statusRange: statusCell ? { start: statusCell.start, end: statusCell.end } : null
             });
           }
@@ -493,13 +499,25 @@
     });
     return out;
   }
-  function allUngrouped() {
+  function allOps() {
     var out = [];
     Object.keys(STATE.files).forEach(function (k) {
       var f = STATE.files[k];
       f.model.ops.forEach(function (rec) { out.push(decorate(rec, f.meta)); });
     });
     return out;
+  }
+  // Ungrouped tray = ops with no parent, or a parent that isn't a known top-level item.
+  function allUngrouped() {
+    var ids = {}; allTopLevel().forEach(function (t) { ids[t.id] = true; });
+    return allOps().filter(function (o) { return !(o.parentId && ids[o.parentId]); });
+  }
+  // parentId -> [child ops] (unfiltered; rollup counts the full child set)
+  var RENDER_CHILDMAP = {};
+  function buildChildMap() {
+    var m = {};
+    allOps().forEach(function (o) { if (o.parentId) { (m[o.parentId] = m[o.parentId] || []).push(o); } });
+    RENDER_CHILDMAP = m;
   }
   function decorate(rec, meta) {
     var c = {};
@@ -549,6 +567,7 @@
     // populate project + cb filters once
     populateFilters();
     var F = readFilters();
+    buildChildMap();
     var top = applyFilters(allTopLevel(), F);
 
     // counts per column
@@ -623,6 +642,12 @@
     var foot = el("div", "foot");
     if (c.priority) { var pb = el("span", "badge b-" + c.priority, c.priority); foot.appendChild(pb); }
     if (c.cycle) foot.appendChild(el("span", null, c.cycle));
+    // §B.1.2 children rollup for Epics + Bets (M4 disposition: Bets too)
+    if (c.kind === "EP" || c.kind === "BT") {
+      var kids = RENDER_CHILDMAP[c.id] || [];
+      var closed = kids.filter(function (k) { return k.status === "Done" || k.status === "Cancelled"; }).length;
+      foot.appendChild(el("span", null, kids.length + " children · " + closed + " closed"));
+    }
     card.appendChild(foot);
     return card;
   }
