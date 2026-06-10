@@ -1,0 +1,688 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Plexus Board</title>
+<style>
+  :root {
+    --bg: #0f1419; --panel: #1a2029; --panel2: #222a35; --line: #2d3742;
+    --ink: #e6edf3; --ink-dim: #9aa7b4; --ink-faint: #6b7785;
+    --accent: #4493f8; --accent-dim: #1f6feb;
+    --p0: #f85149; --p1: #db8a2a; --p2: #4493f8; --p3: #8b949e;
+    --ok: #3fb950; --warn: #d29922; --bad: #f85149;
+    --radius: 8px;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    background: var(--bg); color: var(--ink);
+    font: 14px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  a { color: var(--accent); }
+  button {
+    font: inherit; cursor: pointer; border: 1px solid var(--line);
+    background: var(--panel2); color: var(--ink); padding: 5px 11px;
+    border-radius: 6px;
+  }
+  button:hover { border-color: var(--accent); }
+  button.primary { background: var(--accent-dim); border-color: var(--accent); }
+  button.primary:disabled { opacity: .45; cursor: not-allowed; border-color: var(--line); background: var(--panel2); }
+  input[type=text], input[type=password], select {
+    font: inherit; background: var(--panel); color: var(--ink);
+    border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px;
+  }
+  code { background: #00000044; padding: 1px 5px; border-radius: 4px; font-size: 12.5px; }
+  .hidden { display: none !important; }
+
+  /* ---------- Setup screen ---------- */
+  #setup { max-width: 760px; margin: 36px auto; padding: 0 20px; }
+  #setup h1 { font-size: 22px; margin: 0 0 4px; }
+  #setup .sub { color: var(--ink-dim); margin: 0 0 22px; }
+  .card-box { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px 20px; margin-bottom: 18px; }
+  .card-box h2 { font-size: 15px; margin: 0 0 12px; }
+  ol.steps { margin: 0; padding-left: 20px; }
+  ol.steps li { margin: 7px 0; }
+  .consent { border-color: var(--warn); }
+  .consent h2 { color: var(--warn); }
+  .consent ul { margin: 6px 0 14px; padding-left: 18px; color: var(--ink-dim); }
+  .consent label { display: flex; gap: 9px; align-items: flex-start; margin: 10px 0 16px; cursor: pointer; }
+  .tokrow { display: flex; gap: 10px; align-items: center; margin-top: 6px; }
+  .tokrow input { flex: 1; }
+  .err { color: var(--bad); min-height: 18px; margin-top: 8px; font-size: 13px; }
+
+  /* ---------- App shell ---------- */
+  #app { display: none; flex-direction: column; height: 100%; }
+  header.bar { background: var(--panel); border-bottom: 1px solid var(--line); padding: 9px 16px; }
+  header.bar .row1 { display: flex; align-items: center; gap: 14px; }
+  header.bar .title { font-weight: 700; letter-spacing: .3px; }
+  header.bar .meta { color: var(--ink-dim); font-size: 12.5px; }
+  header.bar .spacer { flex: 1; }
+  .filters { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; margin-top: 9px; }
+  .filters label { color: var(--ink-dim); font-size: 12px; display: flex; gap: 5px; align-items: center; }
+  .filters select { padding: 3px 6px; font-size: 12.5px; }
+  .toggle { display: inline-flex; align-items: center; gap: 6px; }
+
+  .board { flex: 1; overflow: auto; padding: 8px 16px 40px; }
+  .cols { display: grid; grid-template-columns: repeat(5, minmax(180px, 1fr)); gap: 12px; position: sticky; top: 0; background: var(--bg); padding: 8px 0 10px; z-index: 5; }
+  .colhead { font-size: 12px; font-weight: 700; color: var(--ink-dim); text-transform: uppercase; letter-spacing: .5px; }
+  .colhead .wip { display: block; font-weight: 400; color: var(--ink-faint); text-transform: none; letter-spacing: 0; font-size: 11px; }
+  .colhead .cnt { color: var(--ink); }
+
+  .swim { margin-top: 6px; }
+  .swim > .swimhd { font-size: 12px; font-weight: 700; color: var(--ink); letter-spacing: .8px; margin: 16px 0 8px; display: flex; align-items: center; gap: 8px; }
+  .swim > .swimhd .tag { color: var(--ink-faint); font-weight: 400; letter-spacing: 0; }
+  .lane { display: grid; grid-template-columns: repeat(5, minmax(180px, 1fr)); gap: 12px; align-items: start; }
+  .lanecell { min-height: 4px; }
+  .empty { grid-column: 1 / -1; color: var(--ink-faint); font-style: italic; padding: 10px 2px; font-size: 13px; }
+  .empty .hint { font-style: normal; color: var(--ink-dim); }
+
+  .pcard { background: var(--panel); border: 1px solid var(--line); border-left-width: 3px; border-radius: 6px; padding: 8px 9px; margin-bottom: 10px; }
+  .pcard.loop { border-radius: 12px; }
+  .pcard:hover { border-color: var(--accent); }
+  .pcard .id { font-size: 11px; font-weight: 700; color: var(--ink-dim); }
+  .pcard .proj { font-size: 10.5px; padding: 1px 6px; border-radius: 10px; margin-left: 6px; color: #fff; }
+  .pcard .ttl { margin: 4px 0; font-size: 13px; }
+  .pcard .foot { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; font-size: 11px; color: var(--ink-dim); }
+  .badge { padding: 0 6px; border-radius: 4px; font-weight: 700; font-size: 10.5px; color: #fff; }
+  .b-P0 { background: var(--p0); } .b-P1 { background: var(--p1); } .b-P2 { background: var(--p2); } .b-P3 { background: var(--p3); }
+  .overdue { border-color: var(--bad) !important; }
+  .od-badge { background: var(--bad); }
+
+  .offaxis { margin-top: 22px; border-top: 1px dashed var(--line); padding-top: 12px; color: var(--ink-dim); font-size: 13px; display: flex; gap: 18px; flex-wrap: wrap; }
+  .offaxis b { color: var(--ink); }
+
+  .tray { margin-top: 26px; border-top: 1px solid var(--line); padding-top: 12px; }
+  .tray summary { cursor: pointer; color: var(--ink-dim); font-size: 13px; }
+  .tray .note { color: var(--ink-faint); font-size: 12px; margin: 6px 0 12px; }
+
+  .toast { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); background: var(--panel2); border: 1px solid var(--line); padding: 9px 16px; border-radius: 8px; font-size: 13px; box-shadow: 0 6px 24px #0008; }
+</style>
+</head>
+<body>
+
+<!-- ============================= SETUP SCREEN ============================= -->
+<div id="setup">
+  <h1>Plexus Board — setup</h1>
+  <p class="sub">This app reads and writes your private ops files in the data repository. It needs a GitHub fine-grained Personal Access Token. The app shell is public (GitHub Pages); your token and your data never leave your browser.</p>
+
+  <div class="card-box">
+    <h2>1 · Create a fine-grained Personal Access Token</h2>
+    <ol class="steps">
+      <li>Go to <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">GitHub → Settings → Developer settings → Fine-grained tokens → Generate new token</a>.</li>
+      <li><b>Token name:</b> <code>plexus-board</code> (anything).</li>
+      <li><b>Resource owner:</b> <code id="cfg-owner">TGragg89</code>.</li>
+      <li><b>Expiration:</b> <b>90 days</b> (you'll be reminded to renew).</li>
+      <li><b>Repository access:</b> "Only select repositories" → choose <b>only</b> <code id="cfg-repo">plexus-bucket-d</code>.</li>
+      <li><b>Permissions → Repository permissions → Contents:</b> <b>Read and write</b>. Leave everything else at "No access".</li>
+      <li>Generate, then copy the token (starts with <code>github_pat_</code>).</li>
+    </ol>
+  </div>
+
+  <div class="card-box consent">
+    <h2>2 · Consent — how your token is stored</h2>
+    <ul>
+      <li>The token is saved in this browser's <b>localStorage</b> — <b>plaintext at rest</b> in your browser profile on this device.</li>
+      <li>It can touch <b>only</b> the contents of the <code>plexus-bucket-d</code> repository (the access you granted it above). Nothing else.</li>
+      <li>It is sent <b>only</b> to <code>api.github.com</code>, in the request header — never placed in a URL, a commit, or this public repo.</li>
+      <li>To revoke at any time: <b>GitHub → Settings → Developer settings → Fine-grained tokens → Revoke</b>. Then clear it here with "Forget token".</li>
+      <li>Use this only on a private device. Shared/public machines are out of contract.</li>
+    </ul>
+    <label><input type="checkbox" id="consent-chk" /> <span>I understand the token is stored in this browser's localStorage and I want to store it here.</span></label>
+    <div class="tokrow">
+      <input type="password" id="tok" placeholder="github_pat_..." autocomplete="off" spellcheck="false" />
+      <button class="primary" id="store-btn" disabled>Store token</button>
+    </div>
+    <div class="err" id="setup-err"></div>
+  </div>
+</div>
+
+<!-- ============================= APP SHELL ============================= -->
+<div id="app">
+  <header class="bar">
+    <div class="row1">
+      <span class="title">PLEXUS PORTFOLIO KANBAN</span>
+      <span class="meta" id="hdr-user"></span>
+      <span class="meta" id="hdr-date"></span>
+      <span class="spacer"></span>
+      <span class="meta" id="hdr-status"></span>
+      <button id="reload-btn">Reload</button>
+      <button id="forget-btn" title="Remove the stored token from this browser">Forget token</button>
+    </div>
+    <div class="filters">
+      <label>Project <select id="f-project"></select></label>
+      <label>Type <select id="f-type">
+        <option value="">All</option><option>Epic</option><option>Bet</option><option>Maintenance Loop</option>
+      </select></label>
+      <label>Priority <select id="f-priority">
+        <option value="P3">P0–P3 (all)</option><option value="P2">P0–P2</option><option value="P1">P0–P1</option><option value="P0">P0 only</option>
+      </select></label>
+      <label>Cycle <select id="f-cycle">
+        <option value="all">All</option><option value="active">Active cycle</option><option value="last">Last cycle</option>
+      </select></label>
+      <label>Strategic Goal <select id="f-cb"><option value="">none</option></select></label>
+      <span class="spacer"></span>
+      <label class="toggle"><input type="checkbox" id="f-session" /> Session focus</label>
+      <button id="saveview-btn" title="Save current filters to this browser">Save view</button>
+    </div>
+  </header>
+
+  <div class="board">
+    <div class="cols">
+      <div class="colhead">Backlog <span class="cnt" id="c-backlog">0</span></div>
+      <div class="colhead">Ready <span class="cnt" id="c-ready">0</span><span class="wip">WIP limit: 5</span></div>
+      <div class="colhead">In Progress <span class="cnt" id="c-inprogress">0</span><span class="wip">WIP limit: 3</span></div>
+      <div class="colhead">In Review <span class="cnt" id="c-inreview">0</span></div>
+      <div class="colhead">Done <span class="cnt" id="c-done">0</span><span class="wip" id="done-wip">this session</span></div>
+    </div>
+    <div id="swimlanes"></div>
+    <div class="offaxis" id="offaxis"></div>
+    <details class="tray hidden" id="ungrouped-tray">
+      <summary id="ungrouped-summary"></summary>
+      <div class="note">These items have no declared top-level Epic / Bet / Maintenance Loop (Phase 1 §A.6.1 not yet applied to the pilot files). They are shown here so the board is usable. Per the §B.1 contract they are children, not swimlane cards — surfacing rule pending Tim's decision.</div>
+      <div id="ungrouped-body"></div>
+    </details>
+  </div>
+</div>
+
+<div class="toast hidden" id="toast"></div>
+
+<!-- ====================================================================== -->
+<!-- CORE: pure functions only (no DOM, no network). Mirror-tested in Node  -->
+<!-- via tools/roundtrip.mjs. Edit discipline: keep this block DOM-free.    -->
+<!-- ====================================================================== -->
+<script id="plexus-core">
+(function (root) {
+  "use strict";
+
+  // ---- Status vocabulary map (Phase 1 Spec §A.3.2) ----
+  // Returns a canonical column name.
+  function mapStatus(raw) {
+    if (raw == null) return "Backlog";
+    var s = String(raw).trim().toLowerCase();
+    // strip backticks/quotes
+    s = s.replace(/[`'"]/g, "").trim();
+    // emoji vocab (Laser / 3D / Lapdesk)
+    if (s.indexOf("✅") >= 0) return "Done";
+    if (s.indexOf("🔄") >= 0) return "In Progress";
+    if (s.indexOf("🚩") >= 0) return "Blocked";
+    if (s.indexOf("❌") >= 0) return "Cancelled";
+    if (s.indexOf("🔲") >= 0) return "Backlog";
+    if (s.indexOf("⏳") >= 0) return "Backlog";
+    if (s.indexOf("🟡") >= 0) return "In Progress";
+    // word vocab (Plexus JSX) + generic English
+    if (/\bcomplete|done\b/.test(s)) return "Done";
+    if (/\binprogress|in progress\b/.test(s)) return "In Progress";
+    if (/\bin review|review\b/.test(s)) return "In Review";
+    if (/\bblocked|flagged\b/.test(s)) return "Blocked";
+    if (/\bskipped|dropped|cancelled|canceled\b/.test(s)) return "Cancelled";
+    if (/\bready\b/.test(s)) return "Ready";
+    if (/\bpending|backlog|not started|open\b/.test(s)) return "Backlog";
+    return "Backlog";
+  }
+
+  // ---- Line index over the raw text (char offsets into raw) ----
+  function indexLines(text) {
+    var lines = [], i = 0, n = text.length, j;
+    while (i <= n) {
+      j = text.indexOf("\n", i);
+      if (j === -1) j = n;
+      lines.push({ start: i, end: j, raw: text.slice(i, j) });
+      if (j === n) break;
+      i = j + 1;
+    }
+    return lines;
+  }
+
+  // Split a table row line into cells with absolute char ranges into raw.
+  // lineStart = absolute offset of the line's first char.
+  function parseRowCells(lineRaw, lineStart) {
+    // Markdown table row: leading & trailing pipes optional. Find all pipe positions.
+    var cells = [], pipes = [], k;
+    for (k = 0; k < lineRaw.length; k++) if (lineRaw[k] === "|") pipes.push(k);
+    if (pipes.length < 2) return null;
+    for (k = 0; k < pipes.length - 1; k++) {
+      var a = pipes[k] + 1, b = pipes[k + 1];
+      cells.push({ text: lineRaw.slice(a, b).trim(), start: lineStart + a, end: lineStart + b, raw: lineRaw.slice(a, b) });
+    }
+    return cells;
+  }
+
+  function isTableRow(s) { return /^\s*\|.*\|\s*$/.test(s); }
+  function isSepRow(s) { return /^\s*\|?[\s:|-]+\|?\s*$/.test(s) && s.indexOf("-") >= 0; }
+
+  var ID_RE = /\b(EP|BT|ML|OP|PD|CB|R)-(\d{3})\b/;
+  var BACKLOG_RE = /^[A-Z]\d+(\s*\+\s*[A-Z]\d+)?$/; // A8, B3, C4, "A7 + B4"
+
+  // Find the index of the column whose header contains `needle` (case-insensitive).
+  function colIndex(headerCells, needle) {
+    for (var i = 0; i < headerCells.length; i++)
+      if (headerCells[i].text.toLowerCase().indexOf(needle) >= 0) return i;
+    return -1;
+  }
+
+  // ---- Main parser ----
+  // Returns a model that RETAINS raw text. serialize(model) re-emits raw with
+  // any targeted edits applied (none for a read-only round trip).
+  function parse(text) {
+    var model = {
+      raw: text, edits: [], warnings: [],
+      preamble: {}, topLevel: [], ops: [], decisions: [],
+      cbs: [], resolved: [], handles: []
+    };
+    var lines = indexLines(text);
+
+    // --- preamble: bold key/value lines before the first "---" or "## " ---
+    for (var li = 0; li < lines.length; li++) {
+      var r = lines[li].raw;
+      if (/^##\s/.test(r) || /^---\s*$/.test(r)) break;
+      var m = r.match(/^\*\*([^:*]+):\*\*\s*(.*)$/);
+      if (m) model.preamble[m[1].trim().toLowerCase()] = m[2].trim();
+    }
+
+    // --- walk sections (## N. ...) and sub-sections (### ...) ---
+    var curSection = null, curSub = null, i, line, raw;
+    var i2;
+    for (i = 0; i < lines.length; i++) {
+      line = lines[i]; raw = line.raw;
+      var ms = raw.match(/^##\s+(.*)$/);
+      var msub = raw.match(/^###\s+(.*)$/);
+      if (ms && !msub) { curSection = ms[1].trim(); curSub = null; continue; }
+      if (msub) { curSub = msub[1].trim(); continue; }
+
+      // Detect a table header here
+      if (isTableRow(raw) && i + 1 < lines.length && isSepRow(lines[i + 1].raw)) {
+        var header = parseRowCells(raw, line.start);
+        if (!header) continue;
+        var statusCol = colIndex(header, "status");
+        var typeCol = colIndex(header, "type");
+        var titleCol = colIndex(header, "title");
+        var prioCol = colIndex(header, "priority");
+        var cycleCol = colIndex(header, "cycle");
+        if (cycleCol < 0) cycleCol = colIndex(header, "recurrence");
+        var addrCol = colIndex(header, "address");
+        var blockedCol = colIndex(header, "blocked");
+        var noteCol = colIndex(header, "note");
+        var srcCol = colIndex(header, "source");
+        var decCol = colIndex(header, "decision");
+        var prioCol2 = prioCol; // active-backlog tables put priority before status
+
+        // consume data rows
+        for (i2 = i + 2; i2 < lines.length; i2++) {
+          var rr = lines[i2].raw;
+          if (!isTableRow(rr)) break;
+          var cells = parseRowCells(rr, lines[i2].start);
+          if (!cells) break;
+          var first = cells[0] ? cells[0].text : "";
+          var idm = first.match(ID_RE);
+          var statusCell = statusCol >= 0 && cells[statusCol] ? cells[statusCol] : null;
+          var get = function (ci) { return ci >= 0 && cells[ci] ? cells[ci].text : ""; };
+
+          if (idm) {
+            var kind = idm[1], id = idm[1] + "-" + idm[2];
+            var rec = {
+              id: id, kind: kind, section: curSection, group: curSub,
+              title: get(titleCol) || get(decCol),
+              statusRaw: statusCell ? statusCell.text : "",
+              status: mapStatus(statusCell ? statusCell.text : ""),
+              priority: normPrio(get(prioCol)),
+              cycle: get(cycleCol), address: get(addrCol),
+              blockedBy: get(blockedCol), notes: get(noteCol), source: get(srcCol),
+              line: i2, statusRange: statusCell ? { start: statusCell.start, end: statusCell.end } : null
+            };
+            if (kind === "EP" || kind === "BT" || kind === "ML") {
+              rec.type = get(typeCol) || (kind === "EP" ? "Epic" : kind === "BT" ? "Bet" : "Maintenance Loop");
+              model.topLevel.push(rec);
+            } else if (kind === "OP") {
+              model.ops.push(rec);
+            } else if (kind === "PD") {
+              model.decisions.push(rec);
+            } else if (kind === "R") {
+              model.resolved.push(rec);
+            } else if (kind === "CB") {
+              model.cbs.push(rec);
+            }
+          } else if (BACKLOG_RE.test(first)) {
+            // Laser active-backlog rows (A8/B3/C4) — treat as ungrouped work items
+            model.ops.push({
+              id: first, kind: "BACKLOG", section: curSection, group: curSub,
+              title: get(titleCol), statusRaw: statusCell ? statusCell.text : "",
+              status: mapStatus(statusCell ? statusCell.text : ""),
+              priority: normPrio(get(prioCol)), cycle: "", address: get(addrCol),
+              blockedBy: "", notes: get(noteCol), source: "",
+              line: i2, statusRange: statusCell ? { start: statusCell.start, end: statusCell.end } : null
+            });
+          }
+        }
+        i = i2 - 1;
+      }
+    }
+    return model;
+  }
+
+  function normPrio(s) {
+    if (!s) return "";
+    var m = String(s).match(/P[0-3]/i);
+    return m ? m[0].toUpperCase() : "";
+  }
+
+  // Apply targeted edits (sorted desc by start) to raw. No edits -> identical raw.
+  function serialize(model) {
+    if (!model.edits || !model.edits.length) return model.raw;
+    var out = model.raw;
+    var ed = model.edits.slice().sort(function (a, b) { return b.start - a.start; });
+    for (var i = 0; i < ed.length; i++) {
+      out = out.slice(0, ed[i].start) + ed[i].value + out.slice(ed[i].end);
+    }
+    return out;
+  }
+
+  var api = { mapStatus: mapStatus, parse: parse, serialize: serialize, indexLines: indexLines, normPrio: normPrio };
+  if (typeof module !== "undefined" && module.exports) module.exports = api;
+  root.Plexus = api;
+})(typeof globalThis !== "undefined" ? globalThis : this);
+</script>
+
+<!-- ====================================================================== -->
+<!-- APP: DOM + network + localStorage. Browser only.                        -->
+<!-- ====================================================================== -->
+<script>
+(function () {
+  "use strict";
+  var P = window.Plexus;
+
+  // ---- Config (engine repo holds NO data; only the public coordinates) ----
+  var OWNER = "TGragg89";
+  var DATA_REPO = "plexus-bucket-d";
+  var OPS_FILES = [
+    { path: "ops/plexus_operations.md", project: "Plexus", tag: "Plexus", color: "#8957e5" },
+    { path: "ops/laser_cutting_operations.md", project: "Laser Cutting", tag: "Laser", color: "#e3603a" }
+  ];
+  var PROJECT_COLORS = { "Plexus": "#8957e5", "Laser Cutting": "#e3603a" };
+  var TOK_KEY = "plexus_pat", TOK_AT = "plexus_pat_at", VIEW_KEY = "plexus_view";
+  var PAT_TTL_DAYS = 90;
+
+  // ---- DOM helpers ----
+  function $(id) { return document.getElementById(id); }
+  function el(tag, cls, txt) { var e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; }
+  function toast(msg) { var t = $("toast"); t.textContent = msg; t.classList.remove("hidden"); clearTimeout(toast._t); toast._t = setTimeout(function () { t.classList.add("hidden"); }, 3200); }
+  function trunc(s, n) { s = s || ""; return s.length > n ? s.slice(0, n - 1) + "…" : s; }
+
+  // ---- Token lifecycle ----
+  function getToken() {
+    var t = localStorage.getItem(TOK_KEY);
+    if (!t) return null;
+    var at = parseInt(localStorage.getItem(TOK_AT) || "0", 10);
+    if (at && (Date.now() - at) > PAT_TTL_DAYS * 864e5) return { token: t, expired: true };
+    return { token: t, expired: false };
+  }
+  function storeToken(t) { localStorage.setItem(TOK_KEY, t); localStorage.setItem(TOK_AT, String(Date.now())); }
+  function forgetToken() { localStorage.removeItem(TOK_KEY); localStorage.removeItem(TOK_AT); }
+
+  // ---- Setup screen wiring ----
+  $("cfg-owner").textContent = OWNER;
+  $("cfg-repo").textContent = DATA_REPO;
+  var chk = $("consent-chk"), tok = $("tok"), storeBtn = $("store-btn");
+  function refreshStoreBtn() { storeBtn.disabled = !(chk.checked && tok.value.trim().length > 10); }
+  chk.addEventListener("change", refreshStoreBtn);
+  tok.addEventListener("input", refreshStoreBtn);
+  storeBtn.addEventListener("click", function () {
+    var v = tok.value.trim();
+    storeToken(v); tok.value = "";
+    boot();
+  });
+  $("forget-btn").addEventListener("click", function () {
+    forgetToken(); showSetup(); toast("Token forgotten.");
+  });
+
+  function showSetup() { $("app").style.display = "none"; $("setup").style.display = "block"; }
+  function showApp() { $("setup").style.display = "none"; $("app").style.display = "flex"; }
+
+  // ---- GitHub contents API ----
+  var etags = {};
+  function ghGet(path, token) {
+    var url = "https://api.github.com/repos/" + OWNER + "/" + DATA_REPO + "/contents/" + path;
+    var headers = { "Authorization": "Bearer " + token, "Accept": "application/vnd.github.raw+json" };
+    if (etags[path]) headers["If-None-Match"] = etags[path];
+    return fetch(url, { headers: headers }).then(function (res) {
+      if (res.status === 304) return { notModified: true };
+      if (res.status === 401) { var e = new Error("Token rejected (401)"); e.auth = true; throw e; }
+      if (res.status === 404) { var e2 = new Error("Not found: " + path + " (404)"); throw e2; }
+      if (!res.ok) throw new Error("GitHub " + res.status + " for " + path);
+      var et = res.headers.get("ETag"); if (et) etags[path] = et;
+      // raw+json returns the raw file body as text
+      return res.text().then(function (body) { return { body: body }; });
+    });
+  }
+
+  // ---- State ----
+  var STATE = { files: {}, lastLoaded: 0 };
+
+  function loadAll() {
+    var info = getToken();
+    if (!info) { showSetup(); return; }
+    if (info.expired) { showSetup(); toast("Token is older than " + PAT_TTL_DAYS + " days — please renew."); return; }
+    showApp();
+    setStatus("loading…");
+    var token = info.token;
+    Promise.all(OPS_FILES.map(function (f) {
+      return ghGet(f.path, token).then(function (r) {
+        if (!r.notModified) STATE.files[f.path] = { meta: f, model: P.parse(r.body) };
+        return true;
+      });
+    })).then(function () {
+      STATE.lastLoaded = Date.now();
+      setStatus("");
+      render();
+    }).catch(function (err) {
+      if (err.auth) { setStatus("token rejected"); showSetup(); toast("Token rejected — please re-enter."); return; }
+      setStatus("error"); toast(err.message);
+    });
+  }
+
+  function setStatus(s) { $("hdr-status").textContent = s; }
+
+  // ---- Build cards from all parsed files ----
+  function allTopLevel() {
+    var out = [];
+    Object.keys(STATE.files).forEach(function (k) {
+      var f = STATE.files[k];
+      f.model.topLevel.forEach(function (rec) {
+        out.push(decorate(rec, f.meta));
+      });
+    });
+    return out;
+  }
+  function allUngrouped() {
+    var out = [];
+    Object.keys(STATE.files).forEach(function (k) {
+      var f = STATE.files[k];
+      f.model.ops.forEach(function (rec) { out.push(decorate(rec, f.meta)); });
+    });
+    return out;
+  }
+  function decorate(rec, meta) {
+    var c = {};
+    for (var key in rec) c[key] = rec[key];
+    c.project = meta.project; c.projTag = meta.tag; c.color = meta.color || PROJECT_COLORS[meta.project] || "#555";
+    c.swim = rec.type === "Bet" ? "Bets" : rec.type === "Maintenance Loop" ? "Maintenance Loops" : (rec.kind === "EP" ? "Epics" : "Epics");
+    return c;
+  }
+
+  // ---- Filters (§B.1.4) + Session focus (§B.1.5) ----
+  function readFilters() {
+    return {
+      project: $("f-project").value,
+      type: $("f-type").value,
+      priority: $("f-priority").value, // worst priority to include
+      cycle: $("f-cycle").value,
+      cb: $("f-cb").value,
+      session: $("f-session").checked
+    };
+  }
+  var PRIO_RANK = { P0: 0, P1: 1, P2: 2, P3: 3, "": 4 };
+  function applyFilters(cards, F) {
+    return cards.filter(function (c) {
+      if (F.project && c.project !== F.project) return false;
+      if (F.type && c.type !== F.type) return false;
+      if (F.priority) { var lim = PRIO_RANK[F.priority]; if (PRIO_RANK[c.priority] > lim && c.priority !== "") return false; }
+      if (F.cb && (c.coupled_cb || "") !== F.cb) return false;
+      if (F.session) {
+        if (c.status === "Done") return false;
+        if (c.status === "Backlog" && c.blockedBy && c.blockedBy.trim()) return false;
+      }
+      return true;
+    });
+  }
+  function sortCards(cards, F) {
+    return cards.slice().sort(function (a, b) {
+      var pr = (PRIO_RANK[a.priority] - PRIO_RANK[b.priority]); if (pr) return pr;
+      return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
+    });
+  }
+
+  var COLS = ["Backlog", "Ready", "In Progress", "In Review", "Done"];
+  var COLID = { "Backlog": "c-backlog", "Ready": "c-ready", "In Progress": "c-inprogress", "In Review": "c-inreview", "Done": "c-done" };
+  var SWIMS = ["Epics", "Bets", "Maintenance Loops"];
+
+  function render() {
+    // populate project + cb filters once
+    populateFilters();
+    var F = readFilters();
+    var top = applyFilters(allTopLevel(), F);
+
+    // counts per column
+    var counts = { "Backlog": 0, "Ready": 0, "In Progress": 0, "In Review": 0, "Done": 0, "Blocked": 0, "Cancelled": 0 };
+    top.forEach(function (c) { if (counts[c.status] != null) counts[c.status]++; });
+
+    var host = $("swimlanes"); host.innerHTML = "";
+    SWIMS.forEach(function (sw) {
+      var swCards = sortCards(top.filter(function (c) { return c.swim === sw; }), F);
+      var box = el("div", "swim");
+      var hd = el("div", "swimhd"); hd.appendChild(el("span", null, sw.toUpperCase()));
+      hd.appendChild(el("span", "tag", "(" + swCards.length + ")"));
+      box.appendChild(hd);
+      var lane = el("div", "lane");
+      if (!swCards.length) {
+        lane.appendChild(emptyState(sw, F));
+      } else {
+        COLS.forEach(function (col) {
+          if (F.session && col === "Done") { lane.appendChild(el("div", "lanecell")); return; }
+          var cell = el("div", "lanecell");
+          swCards.filter(function (c) { return c.status === col; }).forEach(function (c) { cell.appendChild(cardEl(c)); });
+          lane.appendChild(cell);
+        });
+      }
+      box.appendChild(lane);
+      host.appendChild(box);
+    });
+
+    // column count chips
+    COLS.forEach(function (col) { $(COLID[col]).textContent = counts[col]; });
+
+    // off-axis Blocked / Cancelled (§A.3.1)
+    var offBlocked = top.filter(function (c) { return c.status === "Blocked"; });
+    var offCancelled = top.filter(function (c) { return c.status === "Cancelled"; });
+    var off = $("offaxis"); off.innerHTML = "";
+    off.appendChild(blockEl("BLOCKED (off-axis)", offBlocked));
+    off.appendChild(blockEl("CANCELLED (off-axis)", offCancelled));
+
+    // ungrouped tray (the OP/backlog items, since no top-level exists yet)
+    renderUngrouped(F);
+
+    setStatus(STATE.lastLoaded ? "updated " + new Date(STATE.lastLoaded).toLocaleTimeString() : "");
+  }
+
+  function emptyState(sw, F) {
+    var e = el("div", "empty");
+    var n = allUngrouped().length;
+    if (sw === "Epics" && n) {
+      e.appendChild(document.createTextNode("No Epics declared yet. "));
+      var h = el("span", "hint", n + " ungrouped work items (OP / backlog rows) found — see the tray below.");
+      e.appendChild(h);
+    } else {
+      e.textContent = "No " + sw.replace(/s$/, "").toLowerCase() + "s yet.";
+    }
+    return e;
+  }
+
+  function blockEl(label, cards) {
+    var d = el("span"); var b = el("b", null, label + ": "); d.appendChild(b);
+    d.appendChild(document.createTextNode(cards.length ? cards.map(function (c) { return c.id; }).join(", ") : "none"));
+    return d;
+  }
+
+  function cardEl(c) {
+    var card = el("div", "pcard" + (c.type === "Maintenance Loop" ? " loop" : ""));
+    card.style.borderLeftColor = c.color;
+    var top = el("div");
+    top.appendChild(el("span", "id", c.id));
+    var pj = el("span", "proj", "[" + c.projTag + "]"); pj.style.background = c.color; top.appendChild(pj);
+    card.appendChild(top);
+    card.appendChild(el("div", "ttl", trunc(c.title, 30)));
+    var foot = el("div", "foot");
+    if (c.priority) { var pb = el("span", "badge b-" + c.priority, c.priority); foot.appendChild(pb); }
+    if (c.cycle) foot.appendChild(el("span", null, c.cycle));
+    card.appendChild(foot);
+    return card;
+  }
+
+  function renderUngrouped(F) {
+    var tray = $("ungrouped-tray");
+    var cards = sortCards(applyFilters(allUngrouped(), F), F);
+    if (!cards.length) { tray.classList.add("hidden"); return; }
+    tray.classList.remove("hidden");
+    $("ungrouped-summary").textContent = "Show " + cards.length + " ungrouped work items (OP / backlog rows)";
+    var body = $("ungrouped-body"); body.innerHTML = "";
+    var lane = el("div", "lane");
+    COLS.forEach(function (col) {
+      if (F.session && col === "Done") { lane.appendChild(el("div", "lanecell")); return; }
+      var cell = el("div", "lanecell");
+      cards.filter(function (c) { return c.status === col; }).forEach(function (c) { cell.appendChild(cardEl(c)); });
+      lane.appendChild(cell);
+    });
+    body.appendChild(lane);
+  }
+
+  var filtersPopulated = false;
+  function populateFilters() {
+    if (filtersPopulated) return;
+    filtersPopulated = true;
+    var proj = $("f-project");
+    proj.innerHTML = "<option value=''>All projects</option>";
+    OPS_FILES.forEach(function (f) { var o = el("option", null, f.project); o.value = f.project; proj.appendChild(o); });
+    // restore saved view
+    try {
+      var v = JSON.parse(localStorage.getItem(VIEW_KEY) || "null");
+      if (v) {
+        if (v.project != null) $("f-project").value = v.project;
+        if (v.type != null) $("f-type").value = v.type;
+        if (v.priority != null) $("f-priority").value = v.priority;
+        if (v.cycle != null) $("f-cycle").value = v.cycle;
+        if (v.session != null) $("f-session").checked = v.session;
+      }
+    } catch (e) {}
+  }
+
+  // ---- wire app controls ----
+  ["f-project", "f-type", "f-priority", "f-cycle", "f-cb", "f-session"].forEach(function (id) {
+    document.addEventListener("change", function (ev) { if (ev.target && ev.target.id === id) render(); });
+  });
+  $("reload-btn").addEventListener("click", function () { loadAll(); });
+  $("saveview-btn").addEventListener("click", function () {
+    var F = readFilters(); localStorage.setItem(VIEW_KEY, JSON.stringify(F)); toast("View saved.");
+  });
+
+  // ---- boot ----
+  function boot() {
+    $("hdr-user").textContent = "[User: Tim]";
+    $("hdr-date").textContent = "[Today: " + new Date().toISOString().slice(0, 10) + "]";
+    var info = getToken();
+    if (!info || info.expired) { showSetup(); if (info && info.expired) toast("Token expired — renew it."); return; }
+    loadAll();
+  }
+  boot();
+})();
+</script>
+</body>
+</html>
