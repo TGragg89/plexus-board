@@ -547,7 +547,10 @@
     var url = "https://api.github.com/repos/" + OWNER + "/" + DATA_REPO + "/contents/" + path;
     var headers = GH_HDRS(token);
     if (etags[path]) headers["If-None-Match"] = etags[path];
-    return fetch(url, { headers: headers }).then(function (res) {
+    // cache:"no-store" — slice 1 fetched these same URLs with Accept: raw+json;
+    // the browser HTTP cache can 304-reuse that stale raw body under JSON mode,
+    // making res.json() throw (board renders empty). Bypass the HTTP cache.
+    return fetch(url, { headers: headers, cache: "no-store" }).then(function (res) {
       if (res.status === 304) return { notModified: true };
       if (res.status === 401) { var e = new Error("Token rejected (401)"); e.auth = true; throw e; }
       if (res.status === 404) { throw new Error("Not found: " + path + " (404)"); }
@@ -560,7 +563,7 @@
   function ghPut(path, token, text, sha, message) {
     var url = "https://api.github.com/repos/" + OWNER + "/" + DATA_REPO + "/contents/" + path;
     return fetch(url, {
-      method: "PUT", headers: GH_HDRS(token),
+      method: "PUT", headers: GH_HDRS(token), cache: "no-store",
       body: JSON.stringify({ message: message, content: textToB64(text), sha: sha })
     }).then(function (res) {
       if (res.status === 401) { var e = new Error("Token rejected (401)"); e.auth = true; throw e; }
