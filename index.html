@@ -175,6 +175,44 @@
   .pcard.dragging { opacity: .4; }
   .lanecell.dropok { outline: 2px dashed var(--accent); outline-offset: -3px; border-radius: 6px; background: #4493f814; }
   .lanecell.dropbad { outline: 2px dashed var(--bad); outline-offset: -3px; border-radius: 6px; }
+
+  /* ---------- Header view-select + intake button (slice 3) ---------- */
+  header.bar .hsel { color: var(--ink-dim); font-size: 12px; display: inline-flex; align-items: center; gap: 5px; }
+  header.bar .hsel select { padding: 3px 6px; font-size: 12.5px; max-width: 280px; }
+
+  /* ---------- Drawer link rows (rider 1) ---------- */
+  .drawer-body .linkrow { margin: 7px 0; font-size: 12.5px; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; }
+  .copybtn { font-size: 11px; padding: 2px 9px; }
+
+  /* ---------- Handle views (slice 3 — §B.1.7) ---------- */
+  .handle-view { padding: 6px 2px 30px; }
+  .handle-hd { font-size: 16px; font-weight: 700; margin: 6px 0 4px; }
+  .handle-hd .handle-id { color: var(--accent); }
+  .handle-parts { display: flex; flex-direction: column; gap: 8px; margin: 14px 0 6px; }
+  .handle-part { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 9px 12px; }
+  .handle-part .part-flag { font-size: 11px; margin-left: 8px; padding: 1px 7px; border-radius: 10px; }
+  .handle-part .part-flag.yes { background: #1f6f3a; color: #d7ffe2; }
+  .handle-part .part-flag.no { background: #3a2730; color: var(--ink-faint); }
+  .handle-part .part-contrib { color: var(--ink-dim); font-size: 12.5px; margin-top: 6px; line-height: 1.5; }
+  .handle-sub { font-size: 12px; text-transform: uppercase; letter-spacing: .6px; color: var(--ink-faint); margin: 22px 0 8px; }
+  .pd-list { display: flex; flex-direction: column; gap: 8px; }
+  .pd-row { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 9px 12px; }
+  .pd-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .pd-head .mid { color: var(--ink-dim); font-weight: 700; }
+  .pd-head .pd-title { font-size: 13px; }
+  .pd-enum { display: flex; gap: 6px; flex-wrap: wrap; margin: 8px 0 2px; }
+  .enum-chip { font-size: 10.5px; padding: 2px 8px; border-radius: 10px; border: 1px solid var(--line); color: var(--ink-faint); }
+  .enum-chip.active { border-color: var(--accent); background: #4493f81f; color: var(--ink); font-weight: 700; }
+  .pd-notes { color: var(--ink-faint); font-size: 11.5px; margin-top: 6px; line-height: 1.45; }
+
+  /* ---------- Intake wizard (slice 3 — §A.5 / Write Pattern 3) ---------- */
+  .modal.wiz { max-width: 560px; }
+  .wiz-intro { color: var(--ink-dim); font-size: 12.5px; background: #4493f814; border: 1px solid var(--line); border-radius: 8px; padding: 9px 11px; margin-bottom: 14px; line-height: 1.5; }
+  .wiz-field { display: grid; grid-template-columns: 132px 1fr; gap: 8px 12px; align-items: start; margin: 9px 0; }
+  .wiz-field > label { color: var(--ink-dim); font-size: 12.5px; padding-top: 6px; }
+  .wiz-field input[type=text], .wiz-field select, .wiz-field textarea { width: 100%; font: inherit; background: var(--panel); color: var(--ink); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; }
+  .wiz-field textarea { min-height: 46px; resize: vertical; }
+  .wiz-commit { display: block; margin: 10px 0 0; background: #00000044; border: 1px solid var(--line); border-radius: 6px; padding: 7px 9px; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 11.5px; color: var(--ink-dim); word-break: break-all; }
 </style>
 </head>
 <body>
@@ -224,6 +262,8 @@
       <span class="meta" id="hdr-date"></span>
       <span class="spacer"></span>
       <span class="meta" id="hdr-status"></span>
+      <label class="hsel">View <select id="handle-sel" title="Cross-project handle views (H-NN)"></select></label>
+      <button id="new-btn" class="primary" title="Create a new work item (intake wizard)">+ New</button>
       <button id="reload-btn">Reload</button>
       <button id="forget-btn" title="Remove the stored token from this browser">Forget token</button>
     </div>
@@ -248,6 +288,7 @@
       <div class="colhead">Done <span class="cnt" id="c-done">0</span><span class="wip" id="done-wip">this session</span></div>
     </div>
     <div id="swimlanes"></div>
+    <div class="handle-view hidden" id="handle-view"></div>
     <div class="offaxis" id="offaxis"></div>
     <details class="tray hidden" id="ungrouped-tray">
       <summary id="ungrouped-summary"></summary>
@@ -280,6 +321,19 @@
   </div>
 </div>
 
+<!-- ============================= INTAKE WIZARD (slice 3 — Write Pattern 3) ============================= -->
+<div class="modal-bg hidden" id="wiz-bg">
+  <div class="modal wiz" role="dialog" aria-modal="true" aria-label="New work item">
+    <h3 id="wiz-title">New work item</h3>
+    <div class="body" id="wiz-body"></div>
+    <div class="err" id="wiz-err"></div>
+    <div class="acts">
+      <button id="wiz-cancel">Cancel</button>
+      <button class="primary" id="wiz-ok">Create</button>
+    </div>
+  </div>
+</div>
+
 <!-- ====================================================================== -->
 <!-- CORE: pure functions only (no DOM, no network). Mirror-tested in Node  -->
 <!-- via tools/roundtrip.mjs. Edit discipline: keep this block DOM-free.    -->
@@ -302,10 +356,15 @@
     if (s.indexOf("❌") >= 0) return "Cancelled";
     if (s.indexOf("🔲") >= 0) return "Backlog";
     if (s.indexOf("⏳") >= 0) return "Backlog";
-    if (s.indexOf("🟡") >= 0) return "In Progress";
+    if (s.indexOf("👀") >= 0) return "In Review";   // rider 2 (2026-06-11): In Review emoji token
+    if (s.indexOf("🟡") >= 0) return "Ready";       // rider 2 (2026-06-11): Ready emoji token.
+    //   NOTE: §A.3.2 maps 🟡 → In Progress for the 3D-Printing calibration vocab — a
+    //   collision flagged for the Phase 1 Spec §0 amendment. Safe for the pilot pair
+    //   (neither Plexus nor Laser uses 🟡 in a parsed status cell).
     // word vocab (Plexus JSX) + generic English
     if (/\bcomplete|done\b/.test(s)) return "Done";
     if (/\binprogress|in progress\b/.test(s)) return "In Progress";
+    if (/\binreview\b/.test(s)) return "In Review";  // rider 2: word token (no space)
     if (/\bin review|review\b/.test(s)) return "In Review";
     if (/\bblocked|flagged\b/.test(s)) return "Blocked";
     if (/\bskipped|dropped|cancelled|canceled\b/.test(s)) return "Cancelled";
@@ -398,6 +457,13 @@
         var noteCol = colIndex(header, "note");
         var srcCol = colIndex(header, "source");
         var decCol = colIndex(header, "decision");
+        // rider 1 (2026-06-11): top-level table gained these three columns.
+        var descCol = colIndex(header, "description");
+        var acceptCol = colIndex(header, "acceptance");
+        var linksCol = colIndex(header, "links");
+        // §7 cross-project handle table: "Handle | Participating? | contribution".
+        var handleCol = colIndex(header, "handle");
+        var partCol = colIndex(header, "participating");
         var prioCol2 = prioCol; // active-backlog tables put priority before status
 
         // parent ref from the sub-section header: "### Foo (parent: EP-001)"
@@ -416,6 +482,21 @@
           var prioCell = prioCol >= 0 && cells[prioCol] ? cells[prioCol] : null;
           var get = function (ci) { return ci >= 0 && cells[ci] ? cells[ci].text : ""; };
 
+          // §7 handle table row (H-NN participation) — captured for the handle views.
+          if (handleCol >= 0 && partCol >= 0) {
+            var htext = get(handleCol);
+            var hm = htext.match(/\b(H-\d{2})\b/);
+            if (hm) {
+              model.handles.push({
+                id: hm[1],
+                title: htext.replace(/^H-\d{2}\s*[—-]\s*/, "").trim(),
+                participating: get(partCol),
+                contribution: cells.length ? cells[cells.length - 1].text : ""
+              });
+            }
+            continue;
+          }
+
           if (idm) {
             var kind = idm[1], id = idm[1] + "-" + idm[2];
             var rec = {
@@ -426,6 +507,7 @@
               priority: normPrio(get(prioCol)),
               cycle: get(cycleCol), address: get(addrCol),
               blockedBy: get(blockedCol), notes: get(noteCol), source: get(srcCol),
+              description: get(descCol), acceptance: get(acceptCol), links: get(linksCol),
               parentId: parentId,
               line: i2, statusRange: statusCell ? { start: statusCell.start, end: statusCell.end } : null,
               prioRange: prioCell ? { start: prioCell.start, end: prioCell.end } : null
@@ -548,7 +630,34 @@
     return true;
   }
 
-  var api = { mapStatus: mapStatus, parse: parse, serialize: serialize, indexLines: indexLines, normPrio: normPrio, findRecord: findRecord, setStatus: setStatus, setPriority: setPriority, rollupStatus: rollupStatus, bumpLastUpdated: bumpLastUpdated };
+  // ---- Write Pattern 3 primitive (Phase 1 Spec §A.6.1 intake; design slice 3) ----
+  // Insert a new top-level (EP/BT/ML) row at the end of the "Top-level work items"
+  // table, byte-faithfully: a single targeted insertion, the rest of the file
+  // untouched. rowText is the full pipe-delimited row WITHOUT a trailing newline.
+  function insertTopLevelRow(model, rowText) {
+    var rows = model.topLevel.filter(function (r) { return r.group === "Top-level work items"; });
+    if (!rows.length) { model.warnings.push("Top-level work items table not found"); return false; }
+    var lines = indexLines(model.raw);
+    var lastLine = -1;
+    for (var i = 0; i < rows.length; i++) if (rows[i].line > lastLine) lastLine = rows[i].line;
+    if (lastLine < 0 || lastLine >= lines.length) return false;
+    var endPos = lines[lastLine].end; // offset of the '\n' that closes the last row
+    model.edits.push({ start: endPos, end: endPos, value: "\n" + rowText });
+    return true;
+  }
+
+  // Next free per-project BT / ML number (3-digit zero-padded). EP is
+  // portfolio-global and comes from EP_Register, not a single ops file.
+  function nextLocalId(model, kind) {
+    var max = 0;
+    model.topLevel.forEach(function (r) {
+      if (r.kind === kind) { var n = parseInt(String(r.id).slice(3), 10); if (n > max) max = n; }
+    });
+    var s = String(max + 1); while (s.length < 3) s = "0" + s;
+    return kind + "-" + s;
+  }
+
+  var api = { mapStatus: mapStatus, parse: parse, serialize: serialize, indexLines: indexLines, normPrio: normPrio, findRecord: findRecord, setStatus: setStatus, setPriority: setPriority, rollupStatus: rollupStatus, bumpLastUpdated: bumpLastUpdated, insertTopLevelRow: insertTopLevelRow, nextLocalId: nextLocalId };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   root.Plexus = api;
 })(typeof globalThis !== "undefined" ? globalThis : this);
@@ -567,10 +676,11 @@
   var DATA_REPO = "plexus-bucket-d";
   var OPS_FILES = [
     { path: "ops/plexus_operations.md", project: "Plexus", tag: "Plexus", color: "#8957e5", vocab: "word",
-      root: "C:\\Users\\TJgra\\My Drive\\Plexus" },
+      shape: "Backlog", owner: "Plexus", root: "C:\\Users\\TJgra\\My Drive\\Plexus" },
     { path: "ops/laser_cutting_operations.md", project: "Laser Cutting", tag: "Laser", color: "#e3603a", vocab: "emoji",
-      root: "C:\\Users\\TJgra\\My Drive\\Laser Cutting" }
+      shape: "Reference", owner: "Laser", root: "C:\\Users\\TJgra\\My Drive\\Laser Cutting" }
   ];
+  var EP_REGISTER_PATH = "ops/EP_Register.md"; // portfolio-global Epic allocator (slice 3 intake)
   var PROJECT_COLORS = { "Plexus": "#8957e5", "Laser Cutting": "#e3603a" };
   // Priority is plain text (P0..P3) in both pilot files' vocabularies — file-native,
   // no styling. Same write target set for every file (punch-list 2).
@@ -579,17 +689,19 @@
   var PAT_TTL_DAYS = 90;
 
   // File-native status vocabularies (Phase 1 Spec §A.3.2, reverse direction).
-  // `token` maps a canonical column -> the file's own styled status token. Only
-  // columns a file's vocabulary can represent are offered as write targets;
-  // Ready / In Review have no native token in the pilot pair's vocabularies.
+  // `token` maps a canonical column -> the file's own styled status token. Every
+  // canonical column now has a native token in both vocabularies — Ready / In
+  // Review gained tokens in schema rider 2 (ratified 2026-06-11): word `ready` /
+  // `inreview`; emoji 🟡 / 👀. So both are writable from the drawer dropdown and
+  // drag-and-drop in both vocabularies.
   var VOCABS = {
     word: {
-      order: ["Backlog", "In Progress", "Blocked", "Cancelled", "Done"],
-      token: { "Backlog": "`pending`", "In Progress": "`inprogress`", "Blocked": "`blocked`", "Cancelled": "`skipped`", "Done": "`complete`" }
+      order: ["Backlog", "Ready", "In Progress", "In Review", "Blocked", "Cancelled", "Done"],
+      token: { "Backlog": "`pending`", "Ready": "`ready`", "In Progress": "`inprogress`", "In Review": "`inreview`", "Blocked": "`blocked`", "Cancelled": "`skipped`", "Done": "`complete`" }
     },
     emoji: {
-      order: ["Backlog", "In Progress", "Blocked", "Cancelled", "Done"],
-      token: { "Backlog": "🔲", "In Progress": "🔄", "Blocked": "🚩", "Cancelled": "❌", "Done": "✅" }
+      order: ["Backlog", "Ready", "In Progress", "In Review", "Blocked", "Cancelled", "Done"],
+      token: { "Backlog": "🔲", "Ready": "🟡", "In Progress": "🔄", "In Review": "👀", "Blocked": "🚩", "Cancelled": "❌", "Done": "✅" }
     }
   };
   function today() { return new Date().toISOString().slice(0, 10); }
@@ -820,6 +932,10 @@
   function render() {
     // populate project + cb filters once
     populateFilters();
+    populateHandleSel();
+    // Handle view (§B.1.7) drops the swimlanes and renders a cross-cutting list.
+    if (ACTIVE_HANDLE) { showHandleMode(true); renderHandleView(ACTIVE_HANDLE); return; }
+    showHandleMode(false);
     var F = readFilters();
     buildChildMap();
     var top = applyFilters(allTopLevel(), F);
@@ -960,23 +1076,10 @@
       }
       card.appendChild(rh);
     }
-    // Inline write controls (slice 2 status + punch-list 2 priority).
-    var ssel = statusSelectEl(c), psel = prioSelectEl(c);
-    if (ssel) {
-      var act = el("div", "cardact");
-      act.appendChild(el("span", "lbl", "Status")); act.appendChild(ssel);
-      card.appendChild(act);
-    }
-    if (psel) {
-      var act2 = el("div", "cardact");
-      act2.appendChild(el("span", "lbl", "Priority")); act2.appendChild(psel);
-      card.appendChild(act2);
-    }
-    // Click opens the detail drawer — except clicks on the inline controls.
-    card.addEventListener("click", function (ev) {
-      if (ev.target.closest && (ev.target.closest("select") || ev.target.closest(".cardact"))) return;
-      openDrawer(c);
-    });
+    // W-01 (Tim-ratified 2026-06-11): no inline Status/Priority dropdowns on
+    // Kanban cards. Board-side status change is drag-only; both Status and
+    // Priority remain editable in the detail drawer (opened by clicking the card).
+    card.addEventListener("click", function () { openDrawer(c); });
     // Drag-and-drop (punch-list 6 stretch): only status-writable cards are draggable.
     if (c.statusRange && VOCABS[c.vocab]) {
       card.setAttribute("draggable", "true");
@@ -1284,6 +1387,38 @@
     kv.appendChild(d);
   }
   var TYPE_OF = { EP: "Epic", BT: "Bet", ML: "Maintenance Loop" };
+
+  // Parse markdown links "[label](url)" out of a Links cell; fall back to a bare URL.
+  function parseLinks(s) {
+    var out = [], re = /\[([^\]]*)\]\(([^)]+)\)/g, m;
+    if (!s) return out;
+    while ((m = re.exec(s))) out.push({ label: m[1] || m[2], url: m[2] });
+    if (!out.length && /^\s*(https?:|file:)/i.test(s)) out.push({ label: s.trim(), url: s.trim() });
+    return out;
+  }
+  // Render one link. file:// -> copy-path affordance (browsers block file://
+  // navigation from an https web app). http(s) -> real new-tab anchor.
+  function linkRow(L) {
+    var row = el("div", "linkrow");
+    if (/^file:/i.test(L.url)) {
+      var path = decodeURIComponent(L.url.replace(/^file:\/+/i, "")).replace(/\//g, "\\");
+      row.appendChild(el("span", "muted", (L.label || "Local folder") + ": "));
+      row.appendChild(el("span", "pathlink", path));
+      var cp = el("button", "copybtn", "Copy path");
+      cp.addEventListener("click", function (ev) {
+        ev.stopPropagation();
+        if (navigator.clipboard) navigator.clipboard.writeText(path).then(function () { toast("Path copied."); }, function () { toast("Copy failed — select the path and copy manually."); });
+        else toast("Clipboard unavailable — copy the path manually.");
+      });
+      row.appendChild(cp);
+      row.appendChild(el("div", "gap-note", "Local folder — copy the path to open (browsers block file:// links from a web app)."));
+    } else {
+      var a = el("a", "pathlink", L.label || L.url);
+      a.href = L.url; a.target = "_blank"; a.rel = "noopener";
+      row.appendChild(a);
+    }
+    return row;
+  }
   function drawerBody(c) {
     var frag = document.createDocumentFragment();
     var kv = el("div", "kv");
@@ -1295,15 +1430,18 @@
     if (c.coupled_cb) kvRow(kv, "Strategic Goal", c.coupled_cb);
     frag.appendChild(kv);
 
-    // Description — not a field in the ops §3 schema; render gracefully + flag.
+    // Description (schema rider 1, 2026-06-11) — a real ops-file column now;
+    // render from the file, degrade gracefully when absent.
     frag.appendChild(el("h3", null, "Description"));
-    var desc = c.notes && c.notes.trim();
+    var desc = c.description && c.description.trim();
     frag.appendChild(desc ? el("p", "field", desc)
-      : el("p", "gap-note", "No Description field for top-level items in the ops file (schema gap — flagged at session end)."));
+      : el("p", "gap-note", "No description set for this item."));
 
-    // Acceptance criteria — not a field for top-level items in the ops §3 schema.
+    // Acceptance criteria (schema rider 1) — a real ops-file column now.
     frag.appendChild(el("h3", null, "Acceptance criteria"));
-    frag.appendChild(el("p", "gap-note", "No Acceptance Criteria field for top-level items in the ops file (schema gap — flagged at session end)."));
+    var acc = c.acceptance && c.acceptance.trim();
+    frag.appendChild(acc ? el("p", "field", acc)
+      : el("p", "gap-note", "No acceptance criteria set for this item."));
 
     // Child tasks (name + status) + rollup.
     if (c.kind === "EP" || c.kind === "BT") {
@@ -1331,19 +1469,17 @@
       }
     }
 
-    // Links — first link = the project's root folder, derived per project (no Links field in schema).
+    // Links (schema rider 1) — markdown links from the ops file's Links column.
+    // http(s) render as real anchors (new tab); file:// local-folder links render
+    // a copy-path affordance instead of a dead anchor — browsers block file://
+    // navigation from an https page (flagged in the link row + at session end).
     frag.appendChild(el("h3", null, "Links"));
+    var links = parseLinks(c.links);
+    if (!links.length && c.root) links = [{ label: "Project root folder", url: "file:///" + c.root.replace(/\\/g, "/") }];
     var lk = el("div");
-    if (c.root) {
-      var l1 = el("div");
-      l1.appendChild(el("span", "muted", "Project root: "));
-      var a = el("a", "pathlink", c.root);
-      a.href = "file:///" + c.root.replace(/\\/g, "/"); a.title = "Project root folder (derived per project)";
-      l1.appendChild(a);
-      lk.appendChild(l1);
-    }
-    if (c.address) lk.appendChild(el("div", null, "Address: " + c.address));
-    lk.appendChild(el("p", "gap-note", "First link is the project root folder, derived per project — the ops files carry no Links field (schema gap — flagged at session end)."));
+    if (links.length) links.forEach(function (L) { lk.appendChild(linkRow(L)); });
+    else lk.appendChild(el("p", "gap-note", "No links set for this item."));
+    if (c.address) lk.appendChild(el("div", "rollline", "Address: " + c.address));
     frag.appendChild(lk);
     return frag;
   }
@@ -1351,6 +1487,254 @@
   $("drawer-bg").addEventListener("click", closeDrawer);
   document.addEventListener("keydown", function (e) {
     if (e.key === "Escape" && !$("drawer").classList.contains("hidden") && $("modal-bg").classList.contains("hidden")) closeDrawer();
+  });
+
+  // ===================== H-NN HANDLE VIEWS (slice 3 — §A.7 / §B.1.7) =====================
+  // Canonical handles rendered as cross-cutting list views against live ops data.
+  // Per-handle participation comes from each ops file's §7 table (parsed into
+  // model.handles); H-01 additionally renders the PD-NNN items with the ratified
+  // Q2 multi-class resolution-path enum.
+  var ACTIVE_HANDLE = "";
+  var HANDLE_CATALOG = [
+    { id: "H-01", title: "Open decisions wedged in cells/prose" },
+    { id: "H-02", title: "Items waiting on parts/external" },
+    { id: "H-03", title: "Deferred design sessions / deferred backlog" },
+    { id: "H-04", title: "Pending version bumps + what they wait on" },
+    { id: "H-05", title: "Schema-ahead-of-data fill gaps" },
+    { id: "H-06", title: "Cross-reference / pointer drift" },
+    { id: "H-07", title: "Startup-ritual coverage" },
+    { id: "H-08", title: "DRAFT / NOT DEFINED items" },
+    { id: "H-09", title: "Calibration / retest-pending rows" },
+    { id: "H-10", title: "Multi-place duplication items" }
+  ];
+  function populateHandleSel() {
+    var sel = $("handle-sel"); if (sel._done) return; sel._done = true;
+    var o0 = el("option", null, "Board (swimlanes)"); o0.value = ""; sel.appendChild(o0);
+    HANDLE_CATALOG.forEach(function (h) { var o = el("option", null, h.id + " — " + h.title); o.value = h.id; sel.appendChild(o); });
+  }
+  function showHandleMode(on) {
+    document.querySelector(".cols").classList.toggle("hidden", on);
+    $("swimlanes").classList.toggle("hidden", on);
+    $("offaxis").classList.toggle("hidden", on);
+    if (on) $("ungrouped-tray").classList.add("hidden");
+    $("handle-view").classList.toggle("hidden", !on);
+  }
+  function allHandles() {
+    var out = [];
+    Object.keys(STATE.files).forEach(function (k) {
+      var f = STATE.files[k];
+      (f.model.handles || []).forEach(function (h) {
+        out.push({ id: h.id, title: h.title, participating: h.participating, contribution: h.contribution, project: f.meta.project, tag: f.meta.tag, color: f.meta.color });
+      });
+    });
+    return out;
+  }
+  function allDecisions() {
+    var out = [];
+    Object.keys(STATE.files).forEach(function (k) {
+      var f = STATE.files[k];
+      f.model.decisions.forEach(function (d) { out.push(decorate(d, f.meta)); });
+    });
+    return out;
+  }
+  // Multi-class resolution-path enum (ratified Q2 deviation; A.4.4 + A.7 item 10).
+  var PD_CLASSES = ["Decision → R", "Decision → R + OP", "Spike → OP + PD"];
+  function pdClassOf(d) {
+    var t = ((d.title || "") + " " + (d.notes || "") + " " + (d.source || "")).toLowerCase();
+    if (/spike|enabler/.test(t)) return "Spike → OP + PD";
+    if (/spawn|new op|→ op|op-\d|story/.test(t)) return "Decision → R + OP";
+    return "Decision → R";
+  }
+  function pdRow(d) {
+    var row = el("div", "pd-row");
+    var head = el("div", "pd-head");
+    head.appendChild(el("span", "mid", d.id));
+    var pj = el("span", "proj", "[" + d.projTag + "]"); pj.style.background = d.color; head.appendChild(pj);
+    head.appendChild(el("span", "pd-title", d.title || "(untitled)"));
+    row.appendChild(head);
+    var cls = pdClassOf(d);
+    var enumrow = el("div", "pd-enum");
+    PD_CLASSES.forEach(function (c) { enumrow.appendChild(el("span", "enum-chip" + (c === cls ? " active" : ""), c)); });
+    row.appendChild(enumrow);
+    if (d.notes) row.appendChild(el("div", "pd-notes", d.notes));
+    return row;
+  }
+  function renderHandleView(hid) {
+    var host = $("handle-view"); host.innerHTML = "";
+    var cat = HANDLE_CATALOG.filter(function (h) { return h.id === hid; })[0];
+    var hd = el("div", "handle-hd");
+    hd.appendChild(el("span", "handle-id", hid));
+    hd.appendChild(document.createTextNode(" — " + (cat ? cat.title : "")));
+    host.appendChild(hd);
+
+    var parts = allHandles().filter(function (h) { return h.id === hid; });
+    var box = el("div", "handle-parts");
+    if (!parts.length) box.appendChild(el("div", "gap-note", "No loaded project declares participation in this handle yet."));
+    parts.forEach(function (p) {
+      var yes = /^\s*y/i.test(p.participating);
+      var row = el("div", "handle-part");
+      var hdr = el("div");
+      var chip = el("span", "proj", "[" + p.tag + "]"); chip.style.background = p.color; hdr.appendChild(chip);
+      hdr.appendChild(el("span", "part-flag " + (yes ? "yes" : "no"), yes ? "participating" : "not participating"));
+      row.appendChild(hdr);
+      if (p.contribution && p.contribution !== "—") row.appendChild(el("div", "part-contrib", p.contribution));
+      box.appendChild(row);
+    });
+    host.appendChild(box);
+
+    if (hid === "H-01") {
+      host.appendChild(el("div", "handle-sub", "Pending decisions (live) · resolution-path enum"));
+      var pds = allDecisions();
+      var list = el("div", "pd-list");
+      if (!pds.length) list.appendChild(el("div", "gap-note", "No PD-NNN items in the loaded ops files."));
+      pds.forEach(function (d) { list.appendChild(pdRow(d)); });
+      host.appendChild(list);
+    }
+  }
+
+  // ===================== INTAKE WIZARD (slice 3 — §A.5 / Write Pattern 3) =====================
+  var SHAPE_INTRO = {
+    Backlog: "Backlog-shape project (§A.5.1). Most work is Epics with Stories. A Bet needs a fixed appetite + pitch; recurring chores are Maintenance Loops.",
+    Catalog: "Catalog-shape project (§A.5.2). Mostly item-by-item curation under one or two big Epics, plus seasonal Maintenance Loops.",
+    Reference: "Reference-shape project (§A.5.3). Calibration / upgrade Stories under Epics, Maintenance Loops for upkeep, occasional build-shaped Bets.",
+    Mixed: "Mixed-shape project (§A.5.4). Two halves that never join — note which half this item belongs to in the description."
+  };
+  var CYCLE_LABEL = { "Epic": "Cycle (optional)", "Bet": "Appetite", "Maintenance Loop": "Recurrence" };
+
+  function openWizard() {
+    if (!Object.keys(STATE.files).length) { toast("Load the board first."); return; }
+    var info = getToken();
+    if (!info || info.expired) { showSetup(); toast("Connect a token before creating items."); return; }
+    buildWizardForm();
+    wizErr(""); setWizBusy(false);
+    $("wiz-bg").classList.remove("hidden");
+  }
+  function closeWizard() { $("wiz-bg").classList.add("hidden"); }
+  function wizErr(m) { $("wiz-err").textContent = m || ""; }
+  function setWizBusy(b) { $("wiz-ok").disabled = b; $("wiz-ok").textContent = b ? "Creating…" : "Create"; }
+  function cellSan(s) { return String(s == null ? "" : s).replace(/[|\r\n]+/g, " / ").trim(); }
+
+  function buildWizardForm() {
+    var body = $("wiz-body"); body.innerHTML = "";
+    var intro = el("p", "wiz-intro"); body.appendChild(intro);
+
+    var projSel = el("select");
+    OPS_FILES.forEach(function (f) { var o = el("option", null, f.project); o.value = f.path; projSel.appendChild(o); });
+    var typeSel = el("select");
+    ["Epic", "Bet", "Maintenance Loop"].forEach(function (t) { var o = el("option", null, t); o.value = t; typeSel.appendChild(o); });
+    var titleIn = el("input"); titleIn.type = "text"; titleIn.placeholder = "One imperative sentence";
+    var prioSel = el("select");
+    PRIOS.forEach(function (p) { var o = el("option", null, p); o.value = p; prioSel.appendChild(o); }); prioSel.value = "P2";
+    var cycleIn = el("input"); cycleIn.type = "text";
+    var descIn = el("textarea"); descIn.placeholder = "What this item is.";
+    var accIn = el("textarea"); accIn.placeholder = "What \"done\" means (1–5 bullets).";
+
+    function field(label, ctrl) { var w = el("div", "wiz-field"); w.appendChild(el("label", null, label)); w.appendChild(ctrl); body.appendChild(w); return w; }
+    field("Project", projSel); field("Type", typeSel); field("Title", titleIn); field("Priority", prioSel);
+    var cycleField = field("Cycle", cycleIn);
+    field("Description", descIn); field("Acceptance criteria", accIn);
+    var commit = el("code", "wiz-commit"); body.appendChild(commit);
+
+    function meta() { return OPS_FILES.filter(function (f) { return f.path === projSel.value; })[0]; }
+    function kindOf() { return typeSel.value === "Bet" ? "BT" : typeSel.value === "Maintenance Loop" ? "ML" : "EP"; }
+    function refresh() {
+      var m = meta(); intro.textContent = SHAPE_INTRO[m.shape] || "";
+      cycleField.firstChild.textContent = CYCLE_LABEL[typeSel.value] || "Cycle";
+      cycleIn.placeholder = typeSel.value === "Bet" ? "e.g. 6-week appetite" : typeSel.value === "Maintenance Loop" ? "e.g. monthly; next 2026-07-01" : "optional";
+      var kind = kindOf(), f = STATE.files[m.path];
+      var nextId = kind === "EP" ? "EP-### (from EP_Register on create)" : (f ? P.nextLocalId(f.model, kind) : kind + "-###");
+      commit.textContent = "bucket-d: intake " + nextId + " " + (titleIn.value.trim() || "<title>") + (kind === "EP" ? "   (+ EP-register allocate)" : "");
+    }
+    projSel.addEventListener("change", refresh);
+    typeSel.addEventListener("change", refresh);
+    titleIn.addEventListener("input", refresh);
+    refresh();
+
+    $("wiz-ok").onclick = function () {
+      var m = meta(), title = titleIn.value.trim(), kind = kindOf();
+      if (!title) { wizErr("Title is required."); titleIn.focus(); return; }
+      if (kind === "BT" && !cycleIn.value.trim()) { wizErr("A Bet needs a fixed appetite (§A.4.2). Add one, or choose Epic."); return; }
+      wizErr("");
+      doIntake({ path: m.path, project: m.project, type: typeSel.value, kind: kind,
+        title: title, prio: prioSel.value, cycle: cycleIn.value.trim(), desc: descIn.value.trim(), accept: accIn.value.trim() });
+    };
+    $("wiz-cancel").onclick = closeWizard;
+  }
+
+  // Portfolio-global Epic allocator helpers (EP_Register.md, app-side targeted edits).
+  function registerNextEp(text) {
+    var m = text.match(/Next free number:\s*\**\s*(EP-\d{3})/i);
+    if (m) return m[1];
+    var max = 0, re = /\bEP-(\d{3})\b/g, mm;
+    while ((mm = re.exec(text))) { var n = parseInt(mm[1], 10); if (n > max) max = n; }
+    var s = String(max + 1); while (s.length < 3) s = "0" + s; return "EP-" + s;
+  }
+  function registerAllocate(text, ep, owner, title, date) {
+    var lines = text.split("\n"), lastIdx = -1;
+    for (var i = 0; i < lines.length; i++) if (/^\|\s*EP-\d{3}\s*\|/.test(lines[i])) lastIdx = i;
+    if (lastIdx < 0) return null;
+    lines.splice(lastIdx + 1, 0, "| " + ep + " | " + owner + " | " + title + " | " + date + "  |");
+    text = lines.join("\n");
+    var np = String(parseInt(ep.slice(3), 10) + 1); while (np.length < 3) np = "0" + np;
+    text = text.replace(/(Next free number:\s*\**\s*)EP-\d{3}/i, "$1EP-" + np);
+    text = text.replace(/(\*\*Last updated:\*\*\s*)\d{4}-\d{2}-\d{2}/, "$1" + date);
+    return text;
+  }
+
+  // The intake write: allocate id -> build the row -> (EP) bump register -> write
+  // ops file via Write Pattern 3 (byte-faithful insert + Last updated bump).
+  function doIntake(spec) {
+    var f = STATE.files[spec.path];
+    if (!f) { wizErr("File not loaded."); return; }
+    var info = getToken();
+    if (!info || info.expired) { showSetup(); toast("Token missing/expired — reconnect, then retry."); return; }
+    var token = info.token;
+    var statusToken = VOCABS[f.meta.vocab].token["Backlog"];
+    var rootLink = "[" + f.meta.project + " root](file:///" + f.meta.root.replace(/\\/g, "/") + ")";
+    setWizBusy(true);
+
+    var idP = spec.kind === "EP"
+      ? ghGet(EP_REGISTER_PATH, token).then(function (r) { return { regText: r.body, regSha: r.sha, id: registerNextEp(r.body) }; })
+      : Promise.resolve({ id: P.nextLocalId(f.model, spec.kind) });
+
+    idP.then(function (alloc) {
+      var id = alloc.id;
+      var row = "| " + id + " | " + spec.type + " | " + cellSan(spec.title) + " | " + statusToken + " | " + spec.prio
+        + " | " + (cellSan(spec.cycle) || "—") + " | " + cellSan(spec.desc) + " | " + cellSan(spec.accept) + " | " + rootLink + " |";
+      var m2 = P.parse(f.model.raw);
+      if (!P.insertTopLevelRow(m2, row)) throw new Error("Could not locate the Top-level work items table");
+      P.bumpLastUpdated(m2, today());
+      var newText = P.serialize(m2);
+      var opsMsg = "bucket-d: intake " + id + " " + cellSan(spec.title);
+
+      var chain = Promise.resolve();
+      if (spec.kind === "EP") {
+        var regText2 = registerAllocate(alloc.regText, id, f.meta.owner, cellSan(spec.title), today());
+        if (!regText2) throw new Error("Could not update EP_Register");
+        chain = ghPut(EP_REGISTER_PATH, token, regText2, alloc.regSha, "bucket-d: EP-register allocate " + id + " (" + f.meta.owner + ")");
+      }
+      return chain.then(function () { return ghPut(spec.path, token, newText, f.sha, opsMsg); }).then(function (resp) {
+        f.model = P.parse(newText);
+        f.sha = (resp && resp.content && resp.content.sha) || f.sha;
+        delete etags[spec.path]; if (spec.kind === "EP") delete etags[EP_REGISTER_PATH];
+        var shortSha = (resp && resp.commit && resp.commit.sha) ? resp.commit.sha.slice(0, 7) : "";
+        closeWizard();
+        toast("Created " + id + (shortSha ? " — " + shortSha : "") + (spec.kind === "EP" ? " (EP_Register bumped)" : ""));
+        loadAll(); // re-fetch committed state (fresh shas + board)
+      });
+    }).catch(function (err) {
+      setWizBusy(false);
+      if (err.auth) { forgetToken(); showSetup(); toast("Token rejected — reconnect and retry the intake."); return; }
+      if (err.conflict) { wizErr("The file changed on the server since load. Close, Reload, then retry."); return; }
+      wizErr("Create failed: " + err.message);
+    });
+  }
+
+  // ---- handle + intake wiring ----
+  $("handle-sel").addEventListener("change", function () { ACTIVE_HANDLE = this.value; render(); });
+  $("new-btn").addEventListener("click", openWizard);
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape" && !$("wiz-bg").classList.contains("hidden")) closeWizard();
   });
 
   // ---- boot ----
