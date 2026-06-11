@@ -13,10 +13,13 @@ data repository via an authenticated GitHub API call.
   browser's `localStorage` behind an explicit consent banner and is sent only to
   `api.github.com` in a request header — never in a URL, a commit, or this repo.
 - **Read:** `GET` the contents endpoint per ops file → parse the Markdown ops layer →
-  render the swimlane Kanban.
-- **Write (slice 2, not yet enabled):** parse → mutate one row → re-serialize the
-  untouched remainder byte-for-byte → `PUT` with the cached blob SHA (optimistic locking;
-  a stale SHA is refused, never overwritten).
+  render the swimlane Kanban (full-height cards, multi-select filters, a click-through
+  detail drawer, and a derived child-rollup hint on Epic/Bet cards).
+- **Write (Write Pattern 1):** parse → mutate one cell → re-serialize the untouched
+  remainder byte-for-byte → `PUT` with the cached blob SHA (optimistic locking; a stale
+  SHA is refused, never overwritten) → bump the §preamble `Last updated` in the same write.
+  Two write types ship: **status flip** and **priority change** — inline on a card, in the
+  detail drawer, or by dragging a card between status columns.
 
 ## Layout
 
@@ -24,17 +27,17 @@ data repository via an authenticated GitHub API call.
 |---|---|
 | `index.html` | The whole app. The parser/serializer lives in `<script id="plexus-core">` — pure functions, no DOM. |
 | `tools/roundtrip.mjs` | Acceptance harness: `node tools/roundtrip.mjs <file.md> …` parses then serializes each file and asserts the bytes are identical. The serializer applies only targeted edits to retained raw text, so a read-only round trip is byte-for-byte. |
+| `tools/writecheck.mjs` | Write-fidelity harness: for each write type (status flip + priority change) it applies one change + a `Last updated` bump and asserts **exactly two lines** changed (the row + the date), every other byte identical, and that the re-parsed row lands on the target value. |
 
-## Round-trip acceptance gate
+## Acceptance gates
 
-Before any write code ships, the serializer must reproduce an ops file byte-for-byte:
+Both harnesses extract the core parser from `index.html` (single source of truth) so they
+can never drift from the shipped app.
 
 ```sh
-node tools/roundtrip.mjs path/to/ops_file.md
+node tools/roundtrip.mjs path/to/ops_file.md   # serializer reproduces the file byte-for-byte
+node tools/writecheck.mjs                       # each write type = minimal 2-line diff
 ```
-
-It extracts the core parser from `index.html` (single source of truth) so the test can
-never drift from the shipped app.
 
 ## License
 

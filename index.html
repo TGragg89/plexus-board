@@ -111,6 +111,70 @@
   .modal .body { color: var(--ink-dim); font-size: 13px; line-height: 1.5; }
   .modal .commit { display: block; margin: 12px 0; background: #00000044; border: 1px solid var(--line); border-radius: 6px; padding: 7px 9px; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12px; color: var(--ink); word-break: break-all; }
   .modal .acts { display: flex; justify-content: flex-end; gap: 10px; margin-top: 16px; }
+
+  /* ---------- Title wrap (punch-list 1: no truncation, card grows) ---------- */
+  .pcard .ttl { overflow-wrap: anywhere; word-break: break-word; }
+  .pcard { cursor: pointer; }
+  .pcard .cardact, .pcard select { cursor: default; }
+
+  /* ---------- Child-rollup hint (punch-list 5) ---------- */
+  .pcard .rollup { color: var(--ink-faint); }
+  .pcard .rollup b { color: var(--ink-dim); font-weight: 600; }
+  .pcard .rollup.mismatch { color: var(--warn); }
+  .pcard .rollup.mismatch b { color: var(--warn); }
+
+  /* ---------- Priority inline control (punch-list 2) ---------- */
+  select.priosel { padding: 2px 5px; font-size: 11.5px; flex: 1; min-width: 0; }
+  select.priosel:hover { border-color: var(--accent); }
+
+  /* ---------- Multi-select filter dropdowns (punch-list 4) ---------- */
+  .ms { position: relative; display: inline-block; }
+  .ms-btn { font: inherit; font-size: 12.5px; padding: 3px 22px 3px 8px; background: var(--panel); color: var(--ink);
+    border: 1px solid var(--line); border-radius: 6px; cursor: pointer; position: relative; max-width: 200px;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .ms-btn:hover { border-color: var(--accent); }
+  .ms-btn::after { content: "▾"; position: absolute; right: 7px; top: 50%; transform: translateY(-50%); color: var(--ink-faint); font-size: 10px; }
+  .ms-btn.active { border-color: var(--accent); color: var(--ink); }
+  .ms-pop { position: absolute; z-index: 30; top: calc(100% + 4px); left: 0; min-width: 180px; max-height: 320px; overflow: auto;
+    background: var(--panel2); border: 1px solid var(--line); border-radius: 8px; padding: 5px; box-shadow: 0 8px 28px #0009; }
+  .ms-pop label { display: flex; gap: 8px; align-items: center; color: var(--ink); font-size: 12.5px; padding: 4px 7px; border-radius: 5px; cursor: pointer; white-space: nowrap; }
+  .ms-pop label:hover { background: var(--panel); }
+  .ms-pop .ms-clear { color: var(--ink-dim); font-size: 11.5px; border-top: 1px solid var(--line); margin-top: 4px; padding-top: 6px; }
+
+  /* ---------- Detail drawer / card popup (punch-list 3; mockup §B.1.6 right-drawer) ---------- */
+  .drawer-bg { position: fixed; inset: 0; background: #000a; z-index: 40; }
+  .drawer { position: fixed; top: 0; right: 0; bottom: 0; width: 460px; max-width: 92vw; background: var(--panel);
+    border-left: 1px solid var(--line); z-index: 41; display: flex; flex-direction: column;
+    box-shadow: -10px 0 40px #0007; }
+  .drawer-hd { display: flex; align-items: flex-start; gap: 12px; padding: 14px 18px; border-bottom: 1px solid var(--line); background: var(--panel2); }
+  .drawer-hd h2 { margin: 0; font-size: 14.5px; font-weight: 700; line-height: 1.35; overflow-wrap: anywhere; }
+  .drawer-hd .did { color: var(--ink-dim); font-weight: 700; }
+  .drawer-close { margin-left: auto; background: none; border: none; color: var(--ink-dim); font-size: 22px; line-height: 1; padding: 0 2px; }
+  .drawer-close:hover { color: var(--ink); border: none; }
+  .drawer-body { padding: 14px 18px 28px; overflow: auto; }
+  .drawer-body h3 { font-size: 11px; text-transform: uppercase; letter-spacing: .6px; color: var(--ink-faint); margin: 18px 0 7px; }
+  .drawer-body h3:first-child { margin-top: 0; }
+  .kv { display: grid; grid-template-columns: 116px 1fr; gap: 7px 12px; font-size: 12.5px; align-items: center; }
+  .kv > div:nth-child(odd) { color: var(--ink-faint); }
+  .kv .val { color: var(--ink); }
+  .kv .muted { color: var(--ink-faint); font-style: italic; }
+  .kv select { padding: 3px 6px; font-size: 12px; }
+  .drawer-body .gap-note { color: var(--ink-faint); font-size: 11.5px; font-style: italic; margin: 6px 0 0; }
+  .drawer-body p.field { font-size: 12.5px; margin: 4px 0; color: var(--ink); }
+  .drawer-body ul.field { padding-left: 18px; margin: 6px 0; font-size: 12.5px; }
+  .pathlink { color: var(--accent); word-break: break-all; font-size: 12px; }
+  .minik { background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 6px; }
+  .mrow { display: flex; justify-content: space-between; gap: 10px; padding: 4px 6px; font-size: 12px; border-bottom: 1px solid var(--line); }
+  .mrow:last-child { border-bottom: none; }
+  .mrow .mid { color: var(--ink-dim); font-weight: 700; margin-right: 5px; }
+  .mrow .mst { color: var(--ink-dim); white-space: nowrap; }
+  .rollline { font-size: 11.5px; color: var(--ink-faint); margin-top: 7px; }
+  .rollline.mismatch { color: var(--warn); }
+
+  /* ---------- Drag and drop (punch-list 6 stretch) ---------- */
+  .pcard.dragging { opacity: .4; }
+  .lanecell.dropok { outline: 2px dashed var(--accent); outline-offset: -3px; border-radius: 6px; background: #4493f814; }
+  .lanecell.dropbad { outline: 2px dashed var(--bad); outline-offset: -3px; border-radius: 6px; }
 </style>
 </head>
 <body>
@@ -164,17 +228,11 @@
       <button id="forget-btn" title="Remove the stored token from this browser">Forget token</button>
     </div>
     <div class="filters">
-      <label>Project <select id="f-project"></select></label>
-      <label>Type <select id="f-type">
-        <option value="">All</option><option>Epic</option><option>Bet</option><option>Maintenance Loop</option>
-      </select></label>
-      <label>Priority <select id="f-priority">
-        <option value="P3">P0–P3 (all)</option><option value="P2">P0–P2</option><option value="P1">P0–P1</option><option value="P0">P0 only</option>
-      </select></label>
-      <label>Cycle <select id="f-cycle">
-        <option value="all">All</option><option value="active">Active cycle</option><option value="last">Last cycle</option>
-      </select></label>
-      <label>Strategic Goal <select id="f-cb"><option value="">none</option></select></label>
+      <label>Project <span class="ms" id="ms-project"></span></label>
+      <label>Type <span class="ms" id="ms-type"></span></label>
+      <label>Priority <span class="ms" id="ms-priority"></span></label>
+      <label>Cycle <span class="ms" id="ms-cycle"></span></label>
+      <label>Strategic Goal <span class="ms" id="ms-cb"></span></label>
       <span class="spacer"></span>
       <label class="toggle"><input type="checkbox" id="f-session" /> Session focus</label>
       <button id="saveview-btn" title="Save current filters to this browser">Save view</button>
@@ -200,6 +258,17 @@
 </div>
 
 <div class="toast hidden" id="toast"></div>
+
+<!-- ============================= DETAIL DRAWER (punch-list 3) ============================= -->
+<div class="drawer-bg hidden" id="drawer-bg"></div>
+<aside class="drawer hidden" id="drawer" role="dialog" aria-modal="true" aria-label="Card detail">
+  <div class="drawer-hd">
+    <h2 id="drawer-title"></h2>
+    <button class="drawer-close" id="drawer-close" title="Close (Esc)">×</button>
+  </div>
+  <div class="drawer-body" id="drawer-body"></div>
+</aside>
+
 <div class="modal-bg hidden" id="modal-bg">
   <div class="modal" role="dialog" aria-modal="true">
     <h3 id="modal-title"></h3>
@@ -344,6 +413,7 @@
           var first = cells[0] ? cells[0].text : "";
           var idm = first.match(ID_RE);
           var statusCell = statusCol >= 0 && cells[statusCol] ? cells[statusCol] : null;
+          var prioCell = prioCol >= 0 && cells[prioCol] ? cells[prioCol] : null;
           var get = function (ci) { return ci >= 0 && cells[ci] ? cells[ci].text : ""; };
 
           if (idm) {
@@ -357,7 +427,8 @@
               cycle: get(cycleCol), address: get(addrCol),
               blockedBy: get(blockedCol), notes: get(noteCol), source: get(srcCol),
               parentId: parentId,
-              line: i2, statusRange: statusCell ? { start: statusCell.start, end: statusCell.end } : null
+              line: i2, statusRange: statusCell ? { start: statusCell.start, end: statusCell.end } : null,
+              prioRange: prioCell ? { start: prioCell.start, end: prioCell.end } : null
             };
             if (kind === "EP" || kind === "BT" || kind === "ML") {
               rec.type = get(typeCol) || (kind === "EP" ? "Epic" : kind === "BT" ? "Bet" : "Maintenance Loop");
@@ -380,7 +451,8 @@
               priority: normPrio(get(prioCol)), cycle: "", address: get(addrCol),
               blockedBy: "", notes: get(noteCol), source: "",
               parentId: parentId,
-              line: i2, statusRange: statusCell ? { start: statusCell.start, end: statusCell.end } : null
+              line: i2, statusRange: statusCell ? { start: statusCell.start, end: statusCell.end } : null,
+              prioRange: prioCell ? { start: prioCell.start, end: prioCell.end } : null
             });
           }
         }
@@ -433,6 +505,38 @@
     return true;
   }
 
+  // Flip the priority cell of one row. Priority is plain text (P0..P3) in both
+  // pilot files' vocabularies, so the "styled token" is just the bare PN. Cell
+  // whitespace is preserved so only the token moves (minimal diff, same as setStatus).
+  function setPriority(model, id, prio) {
+    var rec = findRecord(model, id);
+    if (!rec || !rec.prioRange) return false;
+    var raw = model.raw.slice(rec.prioRange.start, rec.prioRange.end);
+    var lead = (raw.match(/^\s*/) || [""])[0];
+    var trail = (raw.match(/\s*$/) || [""])[0];
+    model.edits.push({ start: rec.prioRange.start, end: rec.prioRange.end, value: lead + prio + trail });
+    return true;
+  }
+
+  // Derived child-rollup status (Phase 1 §B.1.2 spirit). PURE — informational
+  // only; never overrides the stored manual status (ratified 2026-06-10). Returns
+  // "" when there are no children. `childStatuses` is an array of canonical columns.
+  function rollupStatus(childStatuses) {
+    if (!childStatuses || !childStatuses.length) return "";
+    var open = 0, prog = 0, ready = 0;
+    for (var i = 0; i < childStatuses.length; i++) {
+      var s = childStatuses[i];
+      if (s === "Done" || s === "Cancelled") continue;
+      open++;
+      if (s === "In Progress" || s === "In Review") prog++;
+      else if (s === "Ready") ready++;
+    }
+    if (open === 0) return "Done";        // every child closed
+    if (prog > 0) return "In Progress";   // at least one actively moving
+    if (ready > 0) return "Ready";        // pullable but not started
+    return "Backlog";                     // all remaining are Backlog/Blocked
+  }
+
   // Bump the §preamble "**Last updated:** YYYY-MM-DD" date in place (date token only).
   function bumpLastUpdated(model, dateStr) {
     var re = /(\*\*Last updated:\*\*\s*)(\d{4}-\d{2}-\d{2})/;
@@ -444,7 +548,7 @@
     return true;
   }
 
-  var api = { mapStatus: mapStatus, parse: parse, serialize: serialize, indexLines: indexLines, normPrio: normPrio, findRecord: findRecord, setStatus: setStatus, bumpLastUpdated: bumpLastUpdated };
+  var api = { mapStatus: mapStatus, parse: parse, serialize: serialize, indexLines: indexLines, normPrio: normPrio, findRecord: findRecord, setStatus: setStatus, setPriority: setPriority, rollupStatus: rollupStatus, bumpLastUpdated: bumpLastUpdated };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   root.Plexus = api;
 })(typeof globalThis !== "undefined" ? globalThis : this);
@@ -462,10 +566,15 @@
   var OWNER = "TGragg89";
   var DATA_REPO = "plexus-bucket-d";
   var OPS_FILES = [
-    { path: "ops/plexus_operations.md", project: "Plexus", tag: "Plexus", color: "#8957e5", vocab: "word" },
-    { path: "ops/laser_cutting_operations.md", project: "Laser Cutting", tag: "Laser", color: "#e3603a", vocab: "emoji" }
+    { path: "ops/plexus_operations.md", project: "Plexus", tag: "Plexus", color: "#8957e5", vocab: "word",
+      root: "C:\\Users\\TJgra\\My Drive\\Plexus" },
+    { path: "ops/laser_cutting_operations.md", project: "Laser Cutting", tag: "Laser", color: "#e3603a", vocab: "emoji",
+      root: "C:\\Users\\TJgra\\My Drive\\Laser Cutting" }
   ];
   var PROJECT_COLORS = { "Plexus": "#8957e5", "Laser Cutting": "#e3603a" };
+  // Priority is plain text (P0..P3) in both pilot files' vocabularies — file-native,
+  // no styling. Same write target set for every file (punch-list 2).
+  var PRIOS = ["P0", "P1", "P2", "P3"];
   var TOK_KEY = "plexus_pat", TOK_AT = "plexus_pat_at", VIEW_KEY = "plexus_view", PEND_KEY = "plexus_pending_write";
   var PAT_TTL_DAYS = 90;
 
@@ -489,7 +598,6 @@
   function $(id) { return document.getElementById(id); }
   function el(tag, cls, txt) { var e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; }
   function toast(msg) { var t = $("toast"); t.textContent = msg; t.classList.remove("hidden"); clearTimeout(toast._t); toast._t = setTimeout(function () { t.classList.add("hidden"); }, 3200); }
-  function trunc(s, n) { s = s || ""; return s.length > n ? s.slice(0, n - 1) + "…" : s; }
 
   // ---- Token lifecycle ----
   function getToken() {
@@ -636,29 +744,31 @@
     var c = {};
     for (var key in rec) c[key] = rec[key];
     c.project = meta.project; c.projTag = meta.tag; c.color = meta.color || PROJECT_COLORS[meta.project] || "#555";
-    c.filePath = meta.path; c.vocab = meta.vocab;
+    c.filePath = meta.path; c.vocab = meta.vocab; c.root = meta.root;
     c.swim = rec.type === "Bet" ? "Bets" : rec.type === "Maintenance Loop" ? "Maintenance Loops" : (rec.kind === "EP" ? "Epics" : "Epics");
     return c;
   }
 
-  // ---- Filters (§B.1.4) + Session focus (§B.1.5) ----
+  // ---- Filters (§B.1.4, ALL multi-select per punch-list 4) + Session focus (§B.1.5) ----
+  // Each filter holds a Set of selected values; an empty Set means "no constraint"
+  // (All). MS[name] is the live multi-select widget (built in populateFilters).
+  var MS = {};
+  var PRIO_RANK = { P0: 0, P1: 1, P2: 2, P3: 3, "": 4 };
+  function selOf(name) { return (MS[name] && MS[name].sel) || new Set(); }
   function readFilters() {
     return {
-      project: $("f-project").value,
-      type: $("f-type").value,
-      priority: $("f-priority").value, // worst priority to include
-      cycle: $("f-cycle").value,
-      cb: $("f-cb").value,
-      session: $("f-session").checked
+      project: selOf("project"), type: selOf("type"), priority: selOf("priority"),
+      cycle: selOf("cycle"), cb: selOf("cb"), session: $("f-session").checked
     };
   }
-  var PRIO_RANK = { P0: 0, P1: 1, P2: 2, P3: 3, "": 4 };
+  function inSet(set, val) { return set.size === 0 || set.has(val); } // empty = all
   function applyFilters(cards, F) {
     return cards.filter(function (c) {
-      if (F.project && c.project !== F.project) return false;
-      if (F.type && c.type !== F.type) return false;
-      if (F.priority) { var lim = PRIO_RANK[F.priority]; if (PRIO_RANK[c.priority] > lim && c.priority !== "") return false; }
-      if (F.cb && (c.coupled_cb || "") !== F.cb) return false;
+      if (!inSet(F.project, c.project)) return false;
+      if (!inSet(F.type, c.type)) return false;
+      if (!inSet(F.priority, c.priority)) return false;
+      if (!inSet(F.cb, c.coupled_cb || "")) return false;
+      if (!inSet(F.cycle, (c.cycle && c.cycle !== "—") ? c.cycle : "")) return false;
       if (F.session) {
         if (c.status === "Done") return false;
         if (c.status === "Backlog" && c.blockedBy && c.blockedBy.trim()) return false;
@@ -676,6 +786,36 @@
   var COLS = ["Backlog", "Ready", "In Progress", "In Review", "Done"];
   var COLID = { "Backlog": "c-backlog", "Ready": "c-ready", "In Progress": "c-inprogress", "In Review": "c-inreview", "Done": "c-done" };
   var SWIMS = ["Epics", "Bets", "Maintenance Loops"];
+
+  // ---- Drag-and-drop (punch-list 6 stretch) ----
+  var DRAG = null; // { path, id, from } while a card is in flight
+  function canFlipTo(path, col) {
+    var f = STATE.files[path]; if (!f) return false;
+    var voc = VOCABS[f.meta.vocab];
+    return !!(voc && voc.token[col]); // Ready / In Review have no native token
+  }
+  function clearDropHints() {
+    Array.prototype.forEach.call(document.querySelectorAll(".lanecell"), function (c) { c.classList.remove("dropok", "dropbad"); });
+  }
+  function laneCell(col) {
+    var cell = el("div", "lanecell");
+    cell.addEventListener("dragover", function (ev) {
+      if (!DRAG) return;
+      ev.preventDefault();
+      var ok = DRAG.from !== col && canFlipTo(DRAG.path, col);
+      cell.classList.add(ok ? "dropok" : "dropbad");
+      try { ev.dataTransfer.dropEffect = ok ? "move" : "none"; } catch (e) {}
+    });
+    cell.addEventListener("dragleave", function () { cell.classList.remove("dropok", "dropbad"); });
+    cell.addEventListener("drop", function (ev) {
+      ev.preventDefault(); cell.classList.remove("dropok", "dropbad");
+      if (!DRAG || DRAG.from === col) return;
+      var d = DRAG;
+      if (!canFlipTo(d.path, col)) { toast(col + " has no status token in this file's vocabulary — can't drop there."); return; }
+      applyChange(d.path, d.id, "status", col, null);
+    });
+    return cell;
+  }
 
   function render() {
     // populate project + cb filters once
@@ -701,7 +841,7 @@
       } else {
         COLS.forEach(function (col) {
           if (F.session && col === "Done") { lane.appendChild(el("div", "lanecell")); return; }
-          var cell = el("div", "lanecell");
+          var cell = laneCell(col);
           swCards.filter(function (c) { return c.status === col; }).forEach(function (c) { cell.appendChild(cardEl(c)); });
           lane.appendChild(cell);
         });
@@ -745,6 +885,51 @@
     return d;
   }
 
+  // Shared write controls — used on cards AND in the detail drawer. They carry
+  // data-path/data-id and class hooks; delegated change handlers do the flip.
+  function statusSelectEl(c) {
+    var voc = VOCABS[c.vocab];
+    if (!voc || !c.statusRange) return null;
+    var sel = el("select", "statussel");
+    sel.setAttribute("data-path", c.filePath); sel.setAttribute("data-id", c.id);
+    var opts = voc.order.slice();
+    if (opts.indexOf(c.status) < 0) opts.unshift(c.status); // show current even if not a write target
+    opts.forEach(function (col) {
+      var o = el("option", null, col); o.value = col;
+      if (col === c.status) o.selected = true;
+      if (!voc.token[col]) o.disabled = true; // not representable in this file's vocab
+      sel.appendChild(o);
+    });
+    return sel;
+  }
+  function prioSelectEl(c) {
+    if (!c.prioRange) return null;
+    var sel = el("select", "priosel");
+    sel.setAttribute("data-path", c.filePath); sel.setAttribute("data-id", c.id);
+    if (!c.priority) { var ph = el("option", null, "—"); ph.value = "__none"; ph.selected = true; ph.disabled = true; sel.appendChild(ph); }
+    var opts = PRIOS.slice();
+    if (c.priority && opts.indexOf(c.priority) < 0) opts.unshift(c.priority);
+    opts.forEach(function (p) {
+      var o = el("option", null, p); o.value = p;
+      if (p === c.priority) o.selected = true;
+      sel.appendChild(o);
+    });
+    return sel;
+  }
+
+  // Derived child-rollup (punch-list 5) — informational; never overrides stored status.
+  function rollupFor(c) {
+    if (!(c.kind === "EP" || c.kind === "BT")) return null;
+    var kids = RENDER_CHILDMAP[c.id] || [];
+    if (!kids.length) return { derived: "", count: 0, closed: 0, mismatch: false };
+    var derived = P.rollupStatus(kids.map(function (k) { return k.status; }));
+    return {
+      derived: derived, count: kids.length,
+      closed: kids.filter(function (k) { return k.status === "Done" || k.status === "Cancelled"; }).length,
+      mismatch: !!derived && derived !== c.status
+    };
+  }
+
   function cardEl(c) {
     var card = el("div", "pcard" + (c.type === "Maintenance Loop" ? " loop" : ""));
     card.style.borderLeftColor = c.color;
@@ -752,35 +937,55 @@
     top.appendChild(el("span", "id", c.id));
     var pj = el("span", "proj", "[" + c.projTag + "]"); pj.style.background = c.color; top.appendChild(pj);
     card.appendChild(top);
-    card.appendChild(el("div", "ttl", trunc(c.title, 30)));
+    card.appendChild(el("div", "ttl", c.title)); // punch-list 1: full title, no truncation
     var foot = el("div", "foot");
     if (c.priority) { var pb = el("span", "badge b-" + c.priority, c.priority); foot.appendChild(pb); }
-    if (c.cycle) foot.appendChild(el("span", null, c.cycle));
-    // §B.1.2 children rollup for Epics + Bets (M4 disposition: Bets too)
-    if (c.kind === "EP" || c.kind === "BT") {
-      var kids = RENDER_CHILDMAP[c.id] || [];
-      var closed = kids.filter(function (k) { return k.status === "Done" || k.status === "Cancelled"; }).length;
-      foot.appendChild(el("span", null, kids.length + " children · " + closed + " closed"));
+    if (c.cycle && c.cycle !== "—") foot.appendChild(el("span", null, c.cycle));
+    // §B.1.2 children rollup count for Epics + Bets (M4 disposition: Bets too)
+    var roll = rollupFor(c);
+    if (roll && roll.count) {
+      foot.appendChild(el("span", null, roll.count + " children · " + roll.closed + " closed"));
     }
     card.appendChild(foot);
-    // Status control (slice 2) — only when the file's vocabulary is known.
-    var voc = VOCABS[c.vocab];
-    if (voc && c.statusRange) {
+    // Derived rollup hint (punch-list 5): mismatch with stored status is informational.
+    if (roll && roll.derived) {
+      var rh = el("div", "rollup" + (roll.mismatch ? " mismatch" : ""));
+      rh.appendChild(document.createTextNode("rollup ▸ "));
+      rh.appendChild(el("b", null, roll.derived));
+      if (roll.mismatch) {
+        rh.appendChild(document.createTextNode(" ≠ stored"));
+        rh.title = "Derived from children. The stored status is a manual field (ratified 2026-06-10); this hint is informational, not an error.";
+      } else {
+        rh.title = "Derived from children; matches the stored status.";
+      }
+      card.appendChild(rh);
+    }
+    // Inline write controls (slice 2 status + punch-list 2 priority).
+    var ssel = statusSelectEl(c), psel = prioSelectEl(c);
+    if (ssel) {
       var act = el("div", "cardact");
-      act.appendChild(el("span", "lbl", "Status"));
-      var sel = el("select", "statussel");
-      sel.setAttribute("data-path", c.filePath);
-      sel.setAttribute("data-id", c.id);
-      var opts = voc.order.slice();
-      if (opts.indexOf(c.status) < 0) opts.unshift(c.status); // show current even if not a write target
-      opts.forEach(function (col) {
-        var o = el("option", null, col); o.value = col;
-        if (col === c.status) o.selected = true;
-        if (!voc.token[col]) o.disabled = true; // not representable in this file's vocab
-        sel.appendChild(o);
-      });
-      act.appendChild(sel);
+      act.appendChild(el("span", "lbl", "Status")); act.appendChild(ssel);
       card.appendChild(act);
+    }
+    if (psel) {
+      var act2 = el("div", "cardact");
+      act2.appendChild(el("span", "lbl", "Priority")); act2.appendChild(psel);
+      card.appendChild(act2);
+    }
+    // Click opens the detail drawer — except clicks on the inline controls.
+    card.addEventListener("click", function (ev) {
+      if (ev.target.closest && (ev.target.closest("select") || ev.target.closest(".cardact"))) return;
+      openDrawer(c);
+    });
+    // Drag-and-drop (punch-list 6 stretch): only status-writable cards are draggable.
+    if (c.statusRange && VOCABS[c.vocab]) {
+      card.setAttribute("draggable", "true");
+      card.addEventListener("dragstart", function (ev) {
+        DRAG = { path: c.filePath, id: c.id, from: c.status };
+        card.classList.add("dragging");
+        try { ev.dataTransfer.setData("text/plain", c.id); ev.dataTransfer.effectAllowed = "move"; } catch (e) {}
+      });
+      card.addEventListener("dragend", function () { card.classList.remove("dragging"); DRAG = null; clearDropHints(); });
     }
     return card;
   }
@@ -795,40 +1000,109 @@
     var lane = el("div", "lane");
     COLS.forEach(function (col) {
       if (F.session && col === "Done") { lane.appendChild(el("div", "lanecell")); return; }
-      var cell = el("div", "lanecell");
+      var cell = laneCell(col);
       cards.filter(function (c) { return c.status === col; }).forEach(function (c) { cell.appendChild(cardEl(c)); });
       lane.appendChild(cell);
     });
     body.appendChild(lane);
   }
 
+  // ---- Multi-select widget (one per filter; empty selection = "All") ----
+  function buildMS(name, mountId, options, allLabel, emptyNote) {
+    var mount = $(mountId); if (!mount) return;
+    mount.innerHTML = "";
+    var sel = new Set();
+    var btn = el("button", "ms-btn"); btn.type = "button";
+    var pop = el("div", "ms-pop hidden");
+    var widget = { name: name, sel: sel, options: options, btn: btn, pop: pop, allLabel: allLabel };
+
+    function summarize() {
+      var n = sel.size;
+      if (n === 0) { btn.textContent = allLabel; btn.classList.remove("active"); return; }
+      btn.classList.add("active");
+      if (n === 1) {
+        var v = sel.values().next().value, o = options.filter(function (x) { return x.value === v; })[0];
+        btn.textContent = o ? o.label : v;
+      } else { btn.textContent = n + " selected"; }
+    }
+    widget.summarize = summarize;
+
+    if (!options.length && emptyNote) pop.appendChild(el("div", "ms-clear", emptyNote));
+    options.forEach(function (o) {
+      var lab = el("label");
+      var cb = el("input"); cb.type = "checkbox"; cb.value = o.value;
+      cb.addEventListener("change", function () {
+        if (cb.checked) sel.add(o.value); else sel.delete(o.value);
+        summarize(); render();
+      });
+      lab.appendChild(cb); lab.appendChild(el("span", null, o.label));
+      pop.appendChild(lab);
+    });
+    var clear = el("div", "ms-clear");
+    var clearBtn = el("a", null, "Clear all"); clearBtn.href = "#";
+    clearBtn.addEventListener("click", function (e) {
+      e.preventDefault(); sel.clear();
+      pop.querySelectorAll("input[type=checkbox]").forEach(function (c) { c.checked = false; });
+      summarize(); render();
+    });
+    clear.appendChild(clearBtn); pop.appendChild(clear);
+
+    btn.addEventListener("click", function (e) {
+      e.stopPropagation();
+      var wasOpen = !pop.classList.contains("hidden");
+      closeAllMS();
+      if (!wasOpen) pop.classList.remove("hidden");
+    });
+
+    mount.appendChild(btn); mount.appendChild(pop);
+    summarize();
+    MS[name] = widget;
+  }
+  function closeAllMS() { Object.keys(MS).forEach(function (k) { MS[k].pop.classList.add("hidden"); }); }
+  document.addEventListener("click", function (ev) {
+    if (!ev.target || !ev.target.closest || !ev.target.closest(".ms")) closeAllMS();
+  });
+  function distinct(getter) {
+    var seen = {}, out = [];
+    allTopLevel().forEach(function (c) { var v = getter(c); if (v && !seen[v]) { seen[v] = 1; out.push(v); } });
+    return out;
+  }
+  function asOpts(arr) { return arr.map(function (v) { return { value: v, label: v }; }); }
+
   var filtersPopulated = false;
   function populateFilters() {
     if (filtersPopulated) return;
     filtersPopulated = true;
-    var proj = $("f-project");
-    proj.innerHTML = "<option value=''>All projects</option>";
-    OPS_FILES.forEach(function (f) { var o = el("option", null, f.project); o.value = f.project; proj.appendChild(o); });
-    // restore saved view
+    buildMS("project", "ms-project", OPS_FILES.map(function (f) { return { value: f.project, label: f.project }; }), "All projects");
+    buildMS("type", "ms-type", asOpts(["Epic", "Bet", "Maintenance Loop"]), "All types");
+    buildMS("priority", "ms-priority", asOpts(PRIOS), "All priorities");
+    buildMS("cycle", "ms-cycle", asOpts(distinct(function (c) { return (c.cycle && c.cycle !== "—") ? c.cycle : ""; })), "All cycles", "No cycles declared in the ops files yet.");
+    buildMS("cb", "ms-cb", asOpts(distinct(function (c) { return c.coupled_cb || ""; })), "All", "No Strategic Goal links in the ops files yet.");
+    // restore saved view (sets persisted as arrays)
     try {
       var v = JSON.parse(localStorage.getItem(VIEW_KEY) || "null");
       if (v) {
-        if (v.project != null) $("f-project").value = v.project;
-        if (v.type != null) $("f-type").value = v.type;
-        if (v.priority != null) $("f-priority").value = v.priority;
-        if (v.cycle != null) $("f-cycle").value = v.cycle;
+        ["project", "type", "priority", "cycle", "cb"].forEach(function (k) {
+          if (Array.isArray(v[k]) && MS[k]) {
+            v[k].forEach(function (val) { MS[k].sel.add(val); });
+            MS[k].pop.querySelectorAll("input[type=checkbox]").forEach(function (c) { if (MS[k].sel.has(c.value)) c.checked = true; });
+            MS[k].summarize();
+          }
+        });
         if (v.session != null) $("f-session").checked = v.session;
       }
     } catch (e) {}
   }
 
   // ---- wire app controls ----
-  ["f-project", "f-type", "f-priority", "f-cycle", "f-cb", "f-session"].forEach(function (id) {
-    document.addEventListener("change", function (ev) { if (ev.target && ev.target.id === id) render(); });
-  });
+  // Multi-select filters re-render via their own checkbox handlers; only the
+  // Session-focus toggle is a native control now.
+  document.addEventListener("change", function (ev) { if (ev.target && ev.target.id === "f-session") render(); });
   $("reload-btn").addEventListener("click", function () { loadAll(); });
   $("saveview-btn").addEventListener("click", function () {
-    var F = readFilters(); localStorage.setItem(VIEW_KEY, JSON.stringify(F)); toast("View saved.");
+    var v = { session: $("f-session").checked };
+    ["project", "type", "priority", "cycle", "cb"].forEach(function (k) { v[k] = Array.from(selOf(k)); });
+    localStorage.setItem(VIEW_KEY, JSON.stringify(v)); toast("View saved.");
   });
 
   // ===================== WRITER (slice 2 — Write Pattern 1) =====================
@@ -860,59 +1134,78 @@
   function getPending() { try { return JSON.parse(localStorage.getItem(PEND_KEY) || "null"); } catch (e) { return null; } }
   function clearPending() { localStorage.removeItem(PEND_KEY); }
 
+  // Current value of the field a change targets (status or priority).
+  function recVal(rec, kind) { return kind === "priority" ? rec.priority : rec.status; }
+  // Commit message conventions: status-flip (slice 2) and priority-change (punch-list 2).
+  function changeCommitMsg(kind, id, from, target) {
+    return kind === "priority"
+      ? "bucket-d: priority-change " + id + " " + (from || "—") + " → " + target
+      : "bucket-d: status-flip " + id + " → " + target;
+  }
+
   // After a (re)load, offer to re-apply an edit that a prior 401 interrupted.
   function maybeOfferReapply() {
     var p = getPending();
     if (!p) return;
+    var kind = p.kind || "status";
     var f = STATE.files[p.path];
     var rec = f && P.findRecord(f.model, p.id);
     if (!rec) { clearPending(); return; }
-    if (rec.status === p.target) { clearPending(); return; } // already there
-    var msg = el("span", "commit", commitMsg(p.id, p.target));
+    if (recVal(rec, kind) === p.target) { clearPending(); return; } // already there
+    var msg = el("span", "commit", changeCommitMsg(kind, p.id, recVal(rec, kind), p.target));
     confirmModal("Re-apply your pending change?",
-      ["Your change to " + p.id + " (" + rec.status + " → " + p.target + ") was interrupted earlier and not written. Re-apply it now?", msg],
+      ["Your " + kind + " change to " + p.id + " (" + recVal(rec, kind) + " → " + p.target + ") was interrupted earlier and not written. Re-apply it now?", msg],
       "Re-apply").then(function (ok) {
-      if (ok) flip(p.path, p.id, p.target); else clearPending();
+      if (ok) applyChange(p.path, p.id, kind, p.target, null); else clearPending();
     });
   }
 
-  function commitMsg(id, targetCol) { return "bucket-d: status-flip " + id + " → " + targetCol; }
-
-  // ---- The flip: parse -> edit one row + Last updated -> serialize -> PUT ----
-  function flip(path, id, targetCol, selEl) {
+  // ---- The change: confirm -> parse -> edit one cell + Last updated -> serialize -> PUT ----
+  // kind = "status" | "priority". Both use the identical Write Pattern 1 discipline.
+  function applyChange(path, id, kind, target, selEl) {
     var f = STATE.files[path];
     if (!f) { toast("File not loaded: " + path); return; }
     var rec = P.findRecord(f.model, id);
     if (!rec) { toast("Row not found: " + id); return; }
-    if (rec.status === targetCol) return; // no-op
-    var voc = VOCABS[f.meta.vocab];
-    var styled = voc && voc.token[targetCol];
-    if (!styled) { toast(targetCol + " has no status token in " + f.meta.project + "'s vocabulary."); resetSel(selEl, rec.status); return; }
+    var from = recVal(rec, kind);
+    if (from === target) return; // no-op
+
+    // Resolve the styled, file-native token to write.
+    var styled;
+    if (kind === "priority") {
+      styled = target; // P0..P3 is plain text in both vocabularies
+    } else {
+      var voc = VOCABS[f.meta.vocab];
+      styled = voc && voc.token[target];
+      if (!styled) { toast(target + " has no status token in " + f.meta.project + "'s vocabulary."); resetSel(selEl, from); return; }
+    }
 
     var info = getToken();
     if (!info || info.expired) { showSetup(); toast("Token missing/expired — reconnect, then re-apply."); return; }
 
-    var fromCol = rec.status, msg = commitMsg(id, targetCol);
+    var msg = changeCommitMsg(kind, id, from, target);
     var cmt = el("span", "commit", msg);
-    confirmModal("Flip status — " + id,
-      [f.meta.project + ": move " + id + " from “" + fromCol + "” to “" + targetCol + "”. This commits a whole-file write to plexus-bucket-d:", cmt,
+    var noun = kind === "priority" ? "priority" : "status";
+    confirmModal((kind === "priority" ? "Change priority — " : "Flip status — ") + id,
+      [f.meta.project + ": move " + id + "'s " + noun + " from “" + from + "” to “" + target + "”. This commits a whole-file write to plexus-bucket-d:", cmt,
         "The §preamble “Last updated” is bumped in the same write. Nothing else changes."],
-      "Commit flip").then(function (ok) {
-      if (!ok) { resetSel(selEl, fromCol); return; }
-      doWrite(path, id, targetCol, styled, msg, fromCol, selEl);
+      kind === "priority" ? "Commit change" : "Commit flip").then(function (ok) {
+      if (!ok) { resetSel(selEl, from); return; }
+      doWrite(path, id, kind, target, styled, msg, from, selEl);
     });
   }
 
-  function doWrite(path, id, targetCol, styled, msg, fromCol, selEl) {
+  function doWrite(path, id, kind, target, styled, msg, from, selEl) {
     var f = STATE.files[path];
     // Build new content from a FRESH parse of the cached raw (edits start empty).
     var m2 = P.parse(f.model.raw);
-    if (!P.setStatus(m2, id, styled)) { toast("Could not locate status cell for " + id); resetSel(selEl, fromCol); return; }
+    var ok = kind === "priority" ? P.setPriority(m2, id, styled) : P.setStatus(m2, id, styled);
+    if (!ok) { toast("Could not locate the " + kind + " cell for " + id); resetSel(selEl, from); return; }
     P.bumpLastUpdated(m2, today());
     var newText = P.serialize(m2);
 
     // Persist intent so a 401 mid-write doesn't lose it (§8 risk 5).
-    savePending({ path: path, id: id, target: targetCol });
+    savePending({ path: path, id: id, kind: kind, target: target });
     setStatus("writing " + id + "…");
     var token = getToken().token;
 
@@ -925,7 +1218,8 @@
       var shortSha = (resp && resp.commit && resp.commit.sha) ? resp.commit.sha.slice(0, 7) : "";
       setStatus("");
       render();
-      toast("Committed " + (shortSha ? shortSha + " — " : "") + id + " → " + targetCol);
+      if (DRAWER_ID) renderDrawer(); // keep an open drawer in sync
+      toast("Committed " + (shortSha ? shortSha + " — " : "") + id + " " + (kind === "priority" ? from + " → " : "→ ") + target);
     }).catch(function (err) {
       if (err.auth) {
         // Fail soft to setup; pending edit is preserved and re-offered after reconnect.
@@ -945,18 +1239,118 @@
       }
       clearPending();
       setStatus("write error");
-      resetSel(selEl, fromCol);
+      resetSel(selEl, from);
       toast("Write failed: " + err.message);
     });
   }
 
-  function resetSel(selEl, col) { if (selEl) selEl.value = col; }
+  function resetSel(selEl, val) { if (selEl) selEl.value = val; }
 
-  // Delegated change handler for the per-card status selects.
+  // Delegated change handlers for the per-card / in-drawer status + priority selects.
   document.addEventListener("change", function (ev) {
     var t = ev.target;
-    if (!t || !t.classList || !t.classList.contains("statussel")) return;
-    flip(t.getAttribute("data-path"), t.getAttribute("data-id"), t.value, t);
+    if (!t || !t.classList) return;
+    if (t.classList.contains("statussel")) applyChange(t.getAttribute("data-path"), t.getAttribute("data-id"), "status", t.value, t);
+    else if (t.classList.contains("priosel")) applyChange(t.getAttribute("data-path"), t.getAttribute("data-id"), "priority", t.value, t);
+  });
+
+  // ===================== DETAIL DRAWER (punch-list 3 — §B.1.6 right-drawer) =====================
+
+  var DRAWER_ID = null, DRAWER_PATH = null;
+  function openDrawer(c) { DRAWER_ID = c.id; DRAWER_PATH = c.filePath; renderDrawer(); $("drawer-bg").classList.remove("hidden"); $("drawer").classList.remove("hidden"); }
+  function closeDrawer() { DRAWER_ID = null; DRAWER_PATH = null; $("drawer-bg").classList.add("hidden"); $("drawer").classList.add("hidden"); }
+  function currentDrawerCard() {
+    if (!DRAWER_ID || !DRAWER_PATH) return null;
+    var f = STATE.files[DRAWER_PATH]; if (!f) return null;
+    var rec = P.findRecord(f.model, DRAWER_ID); if (!rec) return null;
+    return decorate(rec, f.meta);
+  }
+  function renderDrawer() {
+    var c = currentDrawerCard();
+    if (!c) { closeDrawer(); return; }
+    buildChildMap(); // ensure rollup/children reflect the latest model
+    var t = $("drawer-title"); t.innerHTML = "";
+    t.appendChild(el("span", "did", c.id + " · "));
+    t.appendChild(document.createTextNode(c.title));
+    var body = $("drawer-body"); body.innerHTML = "";
+    body.appendChild(drawerBody(c));
+  }
+  function kvRow(kv, label, valNode) {
+    kv.appendChild(el("div", null, label));
+    var d = el("div", "val");
+    if (valNode == null) d.appendChild(el("span", "muted", "—"));
+    else if (typeof valNode === "string") d.textContent = valNode;
+    else d.appendChild(valNode);
+    kv.appendChild(d);
+  }
+  var TYPE_OF = { EP: "Epic", BT: "Bet", ML: "Maintenance Loop" };
+  function drawerBody(c) {
+    var frag = document.createDocumentFragment();
+    var kv = el("div", "kv");
+    kvRow(kv, "Type", c.type || TYPE_OF[c.kind] || c.kind || "—");
+    kvRow(kv, "Project", "[" + c.projTag + "] " + c.project);
+    kvRow(kv, "Status", statusSelectEl(c) || (c.status || "—"));      // editable in-popup
+    kvRow(kv, "Priority", prioSelectEl(c) || (c.priority || "—"));    // editable in-popup
+    if (c.cycle && c.cycle !== "—") kvRow(kv, "Cycle / Recurrence", c.cycle);
+    if (c.coupled_cb) kvRow(kv, "Strategic Goal", c.coupled_cb);
+    frag.appendChild(kv);
+
+    // Description — not a field in the ops §3 schema; render gracefully + flag.
+    frag.appendChild(el("h3", null, "Description"));
+    var desc = c.notes && c.notes.trim();
+    frag.appendChild(desc ? el("p", "field", desc)
+      : el("p", "gap-note", "No Description field for top-level items in the ops file (schema gap — flagged at session end)."));
+
+    // Acceptance criteria — not a field for top-level items in the ops §3 schema.
+    frag.appendChild(el("h3", null, "Acceptance criteria"));
+    frag.appendChild(el("p", "gap-note", "No Acceptance Criteria field for top-level items in the ops file (schema gap — flagged at session end)."));
+
+    // Child tasks (name + status) + rollup.
+    if (c.kind === "EP" || c.kind === "BT") {
+      frag.appendChild(el("h3", null, "Child tasks"));
+      var kids = RENDER_CHILDMAP[c.id] || [];
+      if (kids.length) {
+        var mk = el("div", "minik");
+        kids.forEach(function (k) {
+          var row = el("div", "mrow");
+          var left = el("span");
+          left.appendChild(el("span", "mid", k.id));
+          left.appendChild(document.createTextNode(k.title || "(untitled)"));
+          row.appendChild(left);
+          row.appendChild(el("span", "mst", k.status));
+          mk.appendChild(row);
+        });
+        frag.appendChild(mk);
+        var roll = rollupFor(c);
+        var rl = el("div", "rollline" + (roll && roll.mismatch ? " mismatch" : ""));
+        rl.textContent = "Rollup ▸ " + (roll && roll.derived ? roll.derived : "—") + " · " + (roll ? roll.closed : 0) + " of " + kids.length + " closed"
+          + (roll && roll.mismatch ? "  (≠ stored “" + c.status + "” — informational)" : "");
+        frag.appendChild(rl);
+      } else {
+        frag.appendChild(el("p", "gap-note", "No child tasks parented to this item in the ops file."));
+      }
+    }
+
+    // Links — first link = the project's root folder, derived per project (no Links field in schema).
+    frag.appendChild(el("h3", null, "Links"));
+    var lk = el("div");
+    if (c.root) {
+      var l1 = el("div");
+      l1.appendChild(el("span", "muted", "Project root: "));
+      var a = el("a", "pathlink", c.root);
+      a.href = "file:///" + c.root.replace(/\\/g, "/"); a.title = "Project root folder (derived per project)";
+      l1.appendChild(a);
+      lk.appendChild(l1);
+    }
+    if (c.address) lk.appendChild(el("div", null, "Address: " + c.address));
+    lk.appendChild(el("p", "gap-note", "First link is the project root folder, derived per project — the ops files carry no Links field (schema gap — flagged at session end)."));
+    frag.appendChild(lk);
+    return frag;
+  }
+  $("drawer-close").addEventListener("click", closeDrawer);
+  $("drawer-bg").addEventListener("click", closeDrawer);
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape" && !$("drawer").classList.contains("hidden") && $("modal-bg").classList.contains("hidden")) closeDrawer();
   });
 
   // ---- boot ----
