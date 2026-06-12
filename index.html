@@ -840,16 +840,27 @@
     });
     return out;
   }
-  // Ungrouped tray = ops with no parent, or a parent that isn't a known top-level item.
+  // Composite parent→child join key. BT-NNN / ML-NNN / OP-NNN are PER-PROJECT
+  // (Phase 1 §A.1.2), so every parent→child join must key on (project, ID), never
+  // the bare ID — otherwise Plexus BT-001 and Laser BT-001 collide across the merged
+  // dataset (the per-project ID-scoping defect, Rider 3 bug, ratified 2026-06-12:
+  // Plexus BT-001's drawer rendered Laser BT-001's children A12/A3/B2). EP-NNN is
+  // portfolio-global in NUMBERING, but an Epic's children still live in its own ops
+  // file, so project-scoping the join is always correct for EP too.
+  function pkey(project, id) { return project + "::" + id; }
+  // Ungrouped tray = ops with no parent, or a parent that isn't a known top-level
+  // item IN THE SAME PROJECT.
   function allUngrouped() {
-    var ids = {}; allTopLevel().forEach(function (t) { ids[t.id] = true; });
-    return allOps().filter(function (o) { return !(o.parentId && ids[o.parentId]); });
+    var ids = {}; allTopLevel().forEach(function (t) { ids[pkey(t.project, t.id)] = true; });
+    return allOps().filter(function (o) { return !(o.parentId && ids[pkey(o.project, o.parentId)]); });
   }
-  // parentId -> [child ops] (unfiltered; rollup counts the full child set)
+  // (project, parentId) -> [child ops] (unfiltered; rollup counts the full child set)
   var RENDER_CHILDMAP = {};
   function buildChildMap() {
     var m = {};
-    allOps().forEach(function (o) { if (o.parentId) { (m[o.parentId] = m[o.parentId] || []).push(o); } });
+    allOps().forEach(function (o) {
+      if (o.parentId) { var k = pkey(o.project, o.parentId); (m[k] = m[k] || []).push(o); }
+    });
     RENDER_CHILDMAP = m;
   }
   function decorate(rec, meta) {
@@ -1036,7 +1047,7 @@
   // Derived child-rollup (punch-list 5) — informational; never overrides stored status.
   function rollupFor(c) {
     if (!(c.kind === "EP" || c.kind === "BT")) return null;
-    var kids = RENDER_CHILDMAP[c.id] || [];
+    var kids = RENDER_CHILDMAP[pkey(c.project, c.id)] || [];
     if (!kids.length) return { derived: "", count: 0, closed: 0, mismatch: false };
     var derived = P.rollupStatus(kids.map(function (k) { return k.status; }));
     return {
@@ -1419,6 +1430,15 @@
     }
     return row;
   }
+  // ---- Placeholder policy (BT-001 child, ratified 2026-06-12) ----
+  // Render ONLY file-backed data; never fabricate or derive a field's value. A
+  // schema field that exists but is empty in the ops file shows the empty-form
+  // placeholder; a field the board surfaces but does not yet implement (no file
+  // backing) shows the not-implemented form, naming the BT-001 work item that
+  // tracks building it. Both forms name the tracking item rather than rendering
+  // an invented value.
+  function phEmpty(field) { return "No " + field + " set for this item."; }
+  function phUnimpl(task) { return "Not implemented — tracked: BT-001 > " + task; }
   function drawerBody(c) {
     var frag = document.createDocumentFragment();
     var kv = el("div", "kv");
@@ -1435,18 +1455,18 @@
     frag.appendChild(el("h3", null, "Description"));
     var desc = c.description && c.description.trim();
     frag.appendChild(desc ? el("p", "field", desc)
-      : el("p", "gap-note", "No description set for this item."));
+      : el("p", "gap-note", phEmpty("description")));
 
     // Acceptance criteria (schema rider 1) — a real ops-file column now.
     frag.appendChild(el("h3", null, "Acceptance criteria"));
     var acc = c.acceptance && c.acceptance.trim();
     frag.appendChild(acc ? el("p", "field", acc)
-      : el("p", "gap-note", "No acceptance criteria set for this item."));
+      : el("p", "gap-note", phEmpty("acceptance criteria")));
 
     // Child tasks (name + status) + rollup.
     if (c.kind === "EP" || c.kind === "BT") {
       frag.appendChild(el("h3", null, "Child tasks"));
-      var kids = RENDER_CHILDMAP[c.id] || [];
+      var kids = RENDER_CHILDMAP[pkey(c.project, c.id)] || [];
       if (kids.length) {
         var mk = el("div", "minik");
         kids.forEach(function (k) {
@@ -1474,11 +1494,14 @@
     // a copy-path affordance instead of a dead anchor — browsers block file://
     // navigation from an https page (flagged in the link row + at session end).
     frag.appendChild(el("h3", null, "Links"));
+    // Placeholder policy: render only file-backed links. The earlier derived
+    // "project root folder" fallback is removed — Rider 1 backfilled a real Links
+    // column (first entry = the project root) into every top-level row, so the
+    // fallback is now both redundant and a policy violation (derived, not file-backed).
     var links = parseLinks(c.links);
-    if (!links.length && c.root) links = [{ label: "Project root folder", url: "file:///" + c.root.replace(/\\/g, "/") }];
     var lk = el("div");
     if (links.length) links.forEach(function (L) { lk.appendChild(linkRow(L)); });
-    else lk.appendChild(el("p", "gap-note", "No links set for this item."));
+    else lk.appendChild(el("p", "gap-note", phEmpty("links")));
     if (c.address) lk.appendChild(el("div", "rollline", "Address: " + c.address));
     frag.appendChild(lk);
     return frag;
