@@ -193,6 +193,18 @@
   .drawer-body .linkrow { margin: 7px 0; font-size: 12.5px; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; }
   .copybtn { font-size: 11px; padding: 2px 9px; }
 
+  /* ---------- Editable freetext fields (OP-039) ---------- */
+  .fedit { margin: 4px 0 2px; }
+  .fedit-view { display: flex; align-items: flex-start; gap: 8px; }
+  .fedit-view .fval { flex: 1; min-width: 0; font-size: 12.5px; color: var(--ink); overflow-wrap: anywhere; }
+  .fedit-view .fval.empty { color: var(--ink-faint); font-style: italic; }
+  .fedit-btn { flex: 0 0 auto; font-size: 11px; padding: 2px 9px; color: var(--ink-dim); background: none; border: 1px dashed var(--line); }
+  .fedit-btn:hover { border-color: var(--accent); color: var(--ink); border-style: solid; }
+  .fedit-input { width: 100%; font: inherit; font-size: 12.5px; background: var(--panel); color: var(--ink); border: 1px solid var(--accent); border-radius: 6px; padding: 6px 8px; }
+  textarea.fedit-input { min-height: 70px; resize: vertical; line-height: 1.45; }
+  .fedit-acts { display: flex; justify-content: flex-end; gap: 8px; margin-top: 7px; }
+  .fedit-acts button { font-size: 11.5px; padding: 3px 11px; }
+
   /* ---------- Handle views (slice 3 — §B.1.7) ---------- */
   .handle-view { padding: 6px 2px 30px; }
   .handle-hd { font-size: 16px; font-weight: 700; margin: 6px 0 4px; }
@@ -529,6 +541,9 @@
           var statusCell = statusCol >= 0 && cells[statusCol] ? cells[statusCol] : null;
           var prioCell = prioCol >= 0 && cells[prioCol] ? cells[prioCol] : null;
           var get = function (ci) { return ci >= 0 && cells[ci] ? cells[ci].text : ""; };
+          // Char range of a cell (absolute offsets into raw) — for editable-cell
+          // writes (OP-039 generic editable freetext fields, Write Pattern 1).
+          var range = function (ci) { return ci >= 0 && cells[ci] ? { start: cells[ci].start, end: cells[ci].end } : null; };
 
           // §7 handle table row (H-NN participation) — captured for the handle views.
           if (handleCol >= 0 && partCol >= 0) {
@@ -558,7 +573,16 @@
               description: get(descCol), acceptance: get(acceptCol), links: get(linksCol),
               parentId: parentId,
               line: i2, statusRange: statusCell ? { start: statusCell.start, end: statusCell.end } : null,
-              prioRange: prioCell ? { start: prioCell.start, end: prioCell.end } : null
+              prioRange: prioCell ? { start: prioCell.start, end: prioCell.end } : null,
+              // OP-039 — char ranges of the editable plain-text cells (null when the
+              // column is absent from this row's table). Title falls back to the
+              // Decision column for PD-style tables that have no Title header.
+              cellRanges: {
+                title: range(titleCol >= 0 ? titleCol : decCol),
+                description: range(descCol),
+                notes: range(noteCol),
+                cycle: range(cycleCol)
+              }
             };
             if (kind === "EP" || kind === "BT" || kind === "ML") {
               rec.type = get(typeCol) || (kind === "EP" ? "Epic" : kind === "BT" ? "Bet" : "Maintenance Loop");
@@ -582,7 +606,8 @@
               blockedBy: "", notes: get(noteCol), source: "",
               parentId: parentId,
               line: i2, statusRange: statusCell ? { start: statusCell.start, end: statusCell.end } : null,
-              prioRange: prioCell ? { start: prioCell.start, end: prioCell.end } : null
+              prioRange: prioCell ? { start: prioCell.start, end: prioCell.end } : null,
+              cellRanges: { title: range(titleCol), description: range(descCol), notes: range(noteCol), cycle: range(cycleCol) }
             });
           }
         }
@@ -649,6 +674,34 @@
     var lead = (raw.match(/^\s*/) || [""])[0];
     var trail = (raw.match(/\s*$/) || [""])[0];
     model.edits.push({ start: rec.prioRange.start, end: rec.prioRange.end, value: lead + prio + trail });
+    return true;
+  }
+
+  // Sanitize a value for a markdown table cell: pipes / newlines would break the
+  // row, so collapse them to " / " (matches the intake wizard's cellSan). Trim so
+  // setCell controls the cell's surrounding padding.
+  function sanitizeCell(v) { return String(v == null ? "" : v).replace(/[|\r\n]+/g, " / ").trim(); }
+
+  // OP-039 — generic editable-cell write (Write Pattern 1). Flip ONE plain-text
+  // cell (title / description / notes / cycle) of one row to a new value, leaving
+  // the other ~99% byte-for-byte. `field` is a key of rec.cellRanges; returns false
+  // when the row or that column is absent (so callers degrade gracefully). The same
+  // primitive serves top-level rows (§3 table) and child OP rows (child sub-table) —
+  // both are cells in the same file's raw, addressed by absolute offsets.
+  function setCell(model, id, field, value) {
+    var rec = findRecord(model, id);
+    if (!rec || !rec.cellRanges || !rec.cellRanges[field]) return false;
+    var rng = rec.cellRanges[field];
+    var raw = model.raw.slice(rng.start, rng.end);
+    var clean = sanitizeCell(value);
+    var lead, trail;
+    if (/\S/.test(raw)) {              // non-empty cell: preserve its existing padding
+      lead = (raw.match(/^\s*/) || [""])[0];
+      trail = (raw.match(/\s*$/) || [""])[0];
+    } else {                          // empty cell: single-space pad when populating, else no-op
+      lead = clean ? " " : raw; trail = clean ? " " : "";
+    }
+    model.edits.push({ start: rng.start, end: rng.end, value: lead + clean + trail });
     return true;
   }
 
@@ -781,7 +834,7 @@
     return c;
   }
 
-  var api = { mapStatus: mapStatus, parse: parse, serialize: serialize, indexLines: indexLines, normPrio: normPrio, findRecord: findRecord, setStatus: setStatus, setPriority: setPriority, rollupStatus: rollupStatus, bumpLastUpdated: bumpLastUpdated, insertTopLevelRow: insertTopLevelRow, nextLocalId: nextLocalId, parseAcDetail: parseAcDetail, cycleCriterion: cycleCriterion, acCounts: acCounts, AC_STATE: AC_STATE, AC_EMOJI: AC_EMOJI, AC_NEXT: AC_NEXT, AC_LABEL: AC_LABEL };
+  var api = { mapStatus: mapStatus, parse: parse, serialize: serialize, indexLines: indexLines, normPrio: normPrio, findRecord: findRecord, setStatus: setStatus, setPriority: setPriority, setCell: setCell, sanitizeCell: sanitizeCell, rollupStatus: rollupStatus, bumpLastUpdated: bumpLastUpdated, insertTopLevelRow: insertTopLevelRow, nextLocalId: nextLocalId, parseAcDetail: parseAcDetail, cycleCriterion: cycleCriterion, acCounts: acCounts, AC_STATE: AC_STATE, AC_EMOJI: AC_EMOJI, AC_NEXT: AC_NEXT, AC_LABEL: AC_LABEL };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   root.Plexus = api;
 })(typeof globalThis !== "undefined" ? globalThis : this);
@@ -1580,8 +1633,69 @@
   // an invented value.
   function phEmpty(field) { return "No " + field + " set for this item."; }
   function phUnimpl(task) { return "Not implemented — tracked: BT-001 > " + task; }
+
+  // ---- Editable freetext fields (OP-039) ----
+  // ONE generic editable-cell mechanism for the drawer's plain-text fields
+  // (Title / Description / Notes / Cycle-Recurrence). The Status / Priority selects
+  // and the AC checklist have their own write paths; ID is never editable. A field
+  // is editable iff its column exists in this row's table (c.cellRanges[field]) —
+  // so top-level rows expose Title/Description/Cycle, child OP rows expose
+  // Title/Description/Notes, exactly matching each sub-table's columns.
+  function fieldVal(c, field) {
+    var v = (field === "title" ? c.title : field === "description" ? c.description : field === "notes" ? c.notes : c.cycle) || "";
+    v = v.trim();
+    return v === "—" ? "" : v; // "—" is an explicit-empty placeholder; treat as empty for editing
+  }
+  // Build the view⇄edit toggle node for one field. View mode shows the value (or the
+  // OP-024 empty affordance) + an Edit/Add button; Save commits via doFieldWrite,
+  // Cancel/Esc re-renders the drawer. No confirm modal — Save is the commit (the diff
+  // is minimal and deliberate, matching the intake + AC box-click write paths).
+  function fieldEditor(c, field, label, multiline) {
+    var wrap = el("div", "fedit");
+    var cur = fieldVal(c, field);
+    var view = el("div", "fedit-view");
+    view.appendChild(cur ? el("span", "fval", cur) : el("span", "fval empty", phEmpty(label)));
+    var btn = el("button", "fedit-btn", cur ? "Edit" : "+ Add");
+    btn.addEventListener("click", function (e) { e.stopPropagation(); edit(); });
+    view.appendChild(btn);
+    wrap.appendChild(view);
+    function edit() {
+      wrap.innerHTML = "";
+      var input = el(multiline ? "textarea" : "input", "fedit-input");
+      if (!multiline) input.type = "text";
+      input.value = cur;
+      wrap.appendChild(input);
+      var acts = el("div", "fedit-acts");
+      var cancel = el("button", null, "Cancel");
+      var save = el("button", "primary", "Save");
+      acts.appendChild(cancel); acts.appendChild(save);
+      wrap.appendChild(acts);
+      input.focus();
+      cancel.addEventListener("click", function (e) { e.stopPropagation(); renderDrawer(); });
+      save.addEventListener("click", function (e) {
+        e.stopPropagation();
+        if (input.value.trim() === cur) { renderDrawer(); return; } // no-op
+        doFieldWrite(c.filePath, c.id, field, label, input.value);
+      });
+      input.addEventListener("keydown", function (ev) {
+        if (ev.key === "Escape") { ev.stopPropagation(); renderDrawer(); }
+        else if (ev.key === "Enter" && !multiline) { ev.preventDefault(); save.click(); }
+      });
+    }
+    return wrap;
+  }
+  // Render "h3 label + editor" when the field's column exists; returns whether shown.
+  function editableSection(frag, c, field, label, multiline) {
+    if (!(c.cellRanges && c.cellRanges[field])) return false;
+    frag.appendChild(el("h3", null, label));
+    frag.appendChild(fieldEditor(c, field, label, multiline));
+    return true;
+  }
+
   function drawerBody(c) {
     var frag = document.createDocumentFragment();
+    // Title (OP-039 editable) — header h2 still shows it read-only; this is the edit point.
+    editableSection(frag, c, "title", "Title", false);
     var kv = el("div", "kv");
     kvRow(kv, "Type", c.type || TYPE_OF[c.kind] || c.kind || "—");
     kvRow(kv, "Project", "[" + c.projTag + "] " + c.project);
@@ -1603,16 +1717,20 @@
     }
     kvRow(kv, "Status", statusSelectEl(c) || (c.status || "—"));      // editable in-popup
     kvRow(kv, "Priority", prioSelectEl(c) || (c.priority || "—"));    // editable in-popup
-    if (c.cycle && c.cycle !== "—") kvRow(kv, "Cycle / Recurrence", c.cycle);
     if (c.coupled_cb) kvRow(kv, "Strategic Goal", c.coupled_cb);
     frag.appendChild(kv);
 
-    // Description (schema rider 1, 2026-06-11) — a real ops-file column now;
-    // render from the file, degrade gracefully when absent.
-    frag.appendChild(el("h3", null, "Description"));
-    var desc = c.description && c.description.trim();
-    frag.appendChild(desc ? el("p", "field", desc)
-      : el("p", "gap-note", phEmpty("description")));
+    // Description / Cycle-Recurrence / Notes (OP-039 editable when the column is
+    // present; schema rider 1 gave top-level rows Description, child sub-tables carry
+    // Notes). Each degrades to the OP-024 add affordance when the cell is empty.
+    if (!editableSection(frag, c, "description", "Description", true)) {
+      // Description column absent from this row's table — show read-only / empty.
+      frag.appendChild(el("h3", null, "Description"));
+      var desc = c.description && c.description.trim();
+      frag.appendChild(desc ? el("p", "field", desc) : el("p", "gap-note", phEmpty("description")));
+    }
+    editableSection(frag, c, "cycle", "Cycle / Recurrence", false);
+    editableSection(frag, c, "notes", "Notes", true);
 
     // Acceptance criteria — OP-038 status checklist (Rider 5). Renders the parsed
     // per-criterion block (boxes + handles + state + updated date + typed notes);
@@ -1764,6 +1882,38 @@
       if (err.auth) { forgetToken(); setStatus("token rejected"); showSetup(); toast("Token rejected — reconnect and re-apply."); return; }
       if (err.conflict) { setStatus("conflict — reloading"); toast(id + " AC-" + acIndex + " NOT written — the file changed on the server since you loaded it. Reloading; please re-apply."); loadAll(); return; }
       setStatus("write error"); toast("AC write failed: " + err.message);
+    });
+  }
+
+  // OP-039 — editable-cell write (Write Pattern 1 discipline, same shape as the AC
+  // box-click): parse fresh -> setCell the one plain-text field -> bump Last updated
+  // -> serialize -> PUT with the cached blob SHA (optimistic lock). Minimal diff (the
+  // edited cell's row + Last updated); top-level §3 cells and child sub-table cells
+  // go through the identical path. Save is the commit — no extra confirm modal.
+  function doFieldWrite(path, id, field, label, value) {
+    var f = STATE.files[path];
+    if (!f) { toast("File not loaded: " + path); return; }
+    var info = getToken();
+    if (!info || info.expired) { showSetup(); toast("Token missing/expired — reconnect, then re-apply."); return; }
+    var m2 = P.parse(f.model.raw);
+    if (!P.setCell(m2, id, field, value)) { toast("Could not locate the " + label + " cell for " + id); return; }
+    P.bumpLastUpdated(m2, today());
+    var newText = P.serialize(m2);
+    var msg = "bucket-d: edit " + id + " " + field;
+    setStatus("writing " + id + " " + field + "…");
+    ghPut(path, info.token, newText, f.sha, msg).then(function (resp) {
+      f.model = P.parse(newText);
+      f.sha = (resp && resp.content && resp.content.sha) || f.sha;
+      delete etags[path];
+      var shortSha = (resp && resp.commit && resp.commit.sha) ? resp.commit.sha.slice(0, 7) : "";
+      setStatus("");
+      render();
+      if (DRAWER_ID) renderDrawer();
+      toast("Committed " + (shortSha ? shortSha + " — " : "") + id + " " + label + " updated");
+    }).catch(function (err) {
+      if (err.auth) { forgetToken(); setStatus("token rejected"); showSetup(); toast("Token rejected — reconnect and re-apply."); return; }
+      if (err.conflict) { setStatus("conflict — reloading"); toast(id + " " + label + " NOT written — the file changed on the server since you loaded it. Reloading; please re-apply."); loadAll(); return; }
+      setStatus("write error"); toast(label + " write failed: " + err.message);
     });
   }
 

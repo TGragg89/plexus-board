@@ -25,9 +25,9 @@ new Function("module", "globalThis", m[1])(sandbox.module, sandbox.globalThis);
 const P = sandbox.module.exports.parse ? sandbox.module.exports : sandbox.globalThis.Plexus;
 
 const DATA = join(root, "..", "plexus-bucket-d", "ops");
-const NEW_DATE = "2026-06-13"; // sentinel: must differ from BOTH files' current
+const NEW_DATE = "2026-06-30"; // sentinel: must differ from BOTH files' current
                                // "Last updated" so bumpLastUpdated is a real edit
-                               // (plexus_operations.md is now 2026-06-12; laser 2026-06-11).
+                               // (the pilot files reach 2026-06-13 this session; keep this ahead).
 let failed = 0;
 const fail = (msg) => { failed++; console.log("FAIL  " + msg); };
 
