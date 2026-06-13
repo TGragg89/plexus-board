@@ -222,6 +222,45 @@
   .wiz-field input[type=text], .wiz-field select, .wiz-field textarea { width: 100%; font: inherit; background: var(--panel); color: var(--ink); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; }
   .wiz-field textarea { min-height: 46px; resize: vertical; }
   .wiz-commit { display: block; margin: 10px 0 0; background: #00000044; border: 1px solid var(--line); border-radius: 6px; padding: 7px 9px; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 11.5px; color: var(--ink-dim); word-break: break-all; }
+
+  /* ---------- Acceptance-criteria checklist (OP-038; mockup BucketD_Mockup_AcceptanceChecklist_v0.1.html) ---------- */
+  :root { --st-red: #f85149; --st-red-bg: #2a1416; --st-yellow: #d29922; --st-yellow-bg: #2a2110; --st-green: #3fb950; --st-green-bg: #102a16; }
+  /* mini AC summary pips on a card */
+  .acpips { display: inline-flex; gap: 3px; align-items: center; }
+  .acpip { width: 9px; height: 9px; border-radius: 2px; border: 1px solid #0006; }
+  .acpip.red { background: var(--st-red); } .acpip.yellow { background: var(--st-yellow); } .acpip.green { background: var(--st-green); }
+  /* drawer checklist */
+  .ac-summary { font-size: 11.5px; color: var(--ink-faint); margin: 0 0 8px; }
+  .ac-list { display: flex; flex-direction: column; gap: 8px; }
+  .ac-item { border: 1px solid var(--line); border-radius: 7px; overflow: hidden; background: var(--panel2); }
+  .ac-row { display: flex; gap: 10px; align-items: flex-start; padding: 8px 10px; }
+  .ac-box { flex: 0 0 auto; width: 20px; height: 20px; border-radius: 5px; border: 1px solid #0007; cursor: pointer; position: relative; margin-top: 1px; }
+  .ac-box:hover { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .ac-box.red { background: var(--st-red); }
+  .ac-box.yellow { background: var(--st-yellow); }
+  .ac-box.green { background: var(--st-green); }
+  .ac-box.green::after { content: "✓"; position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: #06130a; font-size: 13px; font-weight: 900; }
+  .ac-box.yellow::after { content: "…"; position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: #2a2110; font-size: 15px; font-weight: 900; line-height: 0.5; }
+  .ac-text { flex: 1; font-size: 12.5px; line-height: 1.4; }
+  .ac-handle { font: 700 10px/1 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; color: var(--ink-faint); background: var(--bg); border: 1px solid var(--line); padding: 2px 4px; border-radius: 4px; margin-right: 5px; vertical-align: 1px; }
+  .ac-right { flex: 0 0 auto; display: flex; flex-direction: column; align-items: flex-end; gap: 3px; }
+  .ac-updated { font-size: 9.5px; color: var(--ink-faint); white-space: nowrap; }
+  .ac-state { flex: 0 0 auto; font-size: 10.5px; font-weight: 700; letter-spacing: .4px; text-transform: uppercase; padding: 1px 6px; border-radius: 4px; align-self: center; }
+  .ac-state.red { color: var(--st-red); background: var(--st-red-bg); }
+  .ac-state.yellow { color: var(--st-yellow); background: var(--st-yellow-bg); }
+  .ac-state.green { color: var(--st-green); background: var(--st-green-bg); }
+  .ac-note { border-top: 1px dashed var(--line); padding: 8px 10px 9px 40px; background: var(--panel); }
+  .ac-note .nlabel { font-size: 9.5px; text-transform: uppercase; letter-spacing: .6px; color: var(--ink-faint); margin: 0 0 3px; }
+  .ac-note .nlabel.proposed { color: var(--st-yellow); }
+  .ac-note .nlabel.met { color: var(--st-green); }
+  .ac-note .nblock + .nblock { margin-top: 8px; }
+  .ac-note .ntext { font-size: 12px; color: var(--ink); margin: 0 0 6px; }
+  .ac-note .nlinks { display: flex; gap: 6px; flex-wrap: wrap; }
+  .ac-note .nlink { display: inline-flex; gap: 5px; align-items: center; font-size: 11px; padding: 2px 8px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel2); color: var(--ink); cursor: pointer; }
+  .ac-note .nlink:hover { border-color: var(--accent); }
+  .ac-note .nlink .ic { font-size: 11px; }
+  .ac-addnote { font-size: 11px; color: var(--ink-faint); background: none; border: 1px dashed var(--line); padding: 3px 8px; border-radius: 6px; margin: 2px 10px 9px 40px; }
+  .ac-addnote:hover { border-color: var(--accent); color: var(--ink); }
 </style>
 </head>
 <body>
@@ -550,6 +589,10 @@
         i = i2 - 1;
       }
     }
+    // Acceptance-criteria checklist blocks (Rider 5) + attach to their records.
+    parseAcDetail(model, lines);
+    var attachCrit = function (arr) { arr.forEach(function (rec) { rec.criteria = model.acDetail[rec.id] || null; }); };
+    attachCrit(model.topLevel); attachCrit(model.ops); attachCrit(model.decisions);
     return model;
   }
 
@@ -666,7 +709,79 @@
     return kind + "-" + s;
   }
 
-  var api = { mapStatus: mapStatus, parse: parse, serialize: serialize, indexLines: indexLines, normPrio: normPrio, findRecord: findRecord, setStatus: setStatus, setPriority: setPriority, rollupStatus: rollupStatus, bumpLastUpdated: bumpLastUpdated, insertTopLevelRow: insertTopLevelRow, nextLocalId: nextLocalId };
+  // ---- Acceptance-criteria checklist (Phase 1 Spec §0 Rider 5, ratified at this build) ----
+  // Per-criterion state lives in a "### Acceptance criteria detail" block keyed by
+  // item id, BELOW the §3 tables. Each criterion is ONE bullet line:
+  //     - <🟥|🟨|🟩> AC-N <text> _(updated YYYY-MM-DD)_
+  // with optional indented note sub-bullets ("Proposed solution:" / "How it's met:"
+  // / "Links:"). The §3 table's Acceptance Criteria cell holds a pointer to this
+  // block (not the criteria text), so a box-click write touches only the bullet
+  // line + the "Last updated" line — the same 2-line minimal diff as a status flip.
+  var AC_STATE = { "🟥": "red", "🟨": "yellow", "🟩": "green" };
+  var AC_EMOJI = { red: "🟥", yellow: "🟨", green: "🟩" };
+  var AC_NEXT  = { red: "yellow", yellow: "green", green: "red" };
+  var AC_LABEL = { red: "Not started", yellow: "In progress", green: "Done" };
+
+  // Parse the detail block into model.acDetail[id] = [{index,state,text,updated,
+  // proposed,met,links, emojiStart,emojiEnd, updatedStart,updatedEnd}]. Offsets are
+  // absolute char positions into raw (for targeted box-click writes). Pure; no warnings.
+  function parseAcDetail(model, lines) {
+    var map = {}, i, start = -1;
+    for (i = 0; i < lines.length; i++)
+      if (/^###\s+Acceptance criteria detail\s*$/i.test(lines[i].raw)) { start = i; break; }
+    model.acDetail = map;
+    if (start < 0) return;
+    var curId = null, list = null;
+    for (i = start + 1; i < lines.length; i++) {
+      var L = lines[i], r = L.raw;
+      if (/^##\s/.test(r) || /^###\s/.test(r) || /^---\s*$/.test(r)) break; // end of the sub-section
+      var hm = r.match(/^####\s+((?:EP|BT|ML|OP|PD|CB|R)-\d{3})\s*$/);
+      if (hm) { curId = hm[1]; list = []; map[curId] = list; continue; }
+      if (!curId) continue;
+      var cm = r.match(/^(\s*-\s+)(🟥|🟨|🟩)\s+AC-(\d+)\s+([\s\S]*?)\s*_\(updated\s+(\d{4}-\d{2}-\d{2})\)_\s*$/);
+      if (cm) {
+        var emojiStart = L.start + cm[1].length, emojiEnd = emojiStart + cm[2].length;
+        var dm = /_\(updated\s+(\d{4}-\d{2}-\d{2})\)_/.exec(r);
+        var dateStart = L.start + dm.index + dm[0].indexOf(dm[1]), dateEnd = dateStart + dm[1].length;
+        list.push({ index: parseInt(cm[3], 10), state: AC_STATE[cm[2]] || "red", text: cm[4],
+          updated: cm[5], emojiStart: emojiStart, emojiEnd: emojiEnd,
+          updatedStart: dateStart, updatedEnd: dateEnd, proposed: "", met: "", links: "" });
+        continue;
+      }
+      if (list && list.length) { // note sub-bullets attach to the last criterion
+        var last = list[list.length - 1], sm;
+        if ((sm = r.match(/^\s+-\s+Proposed solution:\s*([\s\S]*?)\s*$/))) last.proposed = sm[1];
+        else if ((sm = r.match(/^\s+-\s+How it'?s met:\s*([\s\S]*?)\s*$/))) last.met = sm[1];
+        else if ((sm = r.match(/^\s+-\s+Links:\s*([\s\S]*?)\s*$/))) last.links = sm[1];
+      }
+    }
+  }
+
+  // Cycle one criterion 🟥→🟨→🟩→🟥. Pushes the emoji edit + the updated-date edit
+  // (both on the single bullet line). serialize() applies them; the rest of the file
+  // is byte-identical. Mutates the in-memory crit so the model reflects the new state.
+  // Returns { from, to } (state keys) or null when the criterion isn't found.
+  function cycleCriterion(model, id, acIndex, dateStr) {
+    var list = model.acDetail && model.acDetail[id];
+    if (!list) return null;
+    var crit = null;
+    for (var i = 0; i < list.length; i++) if (list[i].index === acIndex) { crit = list[i]; break; }
+    if (!crit) return null;
+    var from = crit.state, to = AC_NEXT[from];
+    model.edits.push({ start: crit.emojiStart, end: crit.emojiEnd, value: AC_EMOJI[to] });
+    if (dateStr && crit.updatedStart != null && model.raw.slice(crit.updatedStart, crit.updatedEnd) !== dateStr)
+      model.edits.push({ start: crit.updatedStart, end: crit.updatedEnd, value: dateStr });
+    crit.state = to; crit.updated = dateStr || crit.updated;
+    return { from: from, to: to };
+  }
+
+  function acCounts(list) {
+    var c = { red: 0, yellow: 0, green: 0 };
+    (list || []).forEach(function (x) { c[x.state]++; });
+    return c;
+  }
+
+  var api = { mapStatus: mapStatus, parse: parse, serialize: serialize, indexLines: indexLines, normPrio: normPrio, findRecord: findRecord, setStatus: setStatus, setPriority: setPriority, rollupStatus: rollupStatus, bumpLastUpdated: bumpLastUpdated, insertTopLevelRow: insertTopLevelRow, nextLocalId: nextLocalId, parseAcDetail: parseAcDetail, cycleCriterion: cycleCriterion, acCounts: acCounts, AC_STATE: AC_STATE, AC_EMOJI: AC_EMOJI, AC_NEXT: AC_NEXT, AC_LABEL: AC_LABEL };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   root.Plexus = api;
 })(typeof globalThis !== "undefined" ? globalThis : this);
@@ -1084,6 +1199,12 @@
     if (roll && roll.count) {
       foot.appendChild(el("span", null, roll.count + " children · " + roll.closed + " closed"));
     }
+    // AC status summary pips (OP-038) — mini squares, one per criterion.
+    if (c.criteria && c.criteria.length) {
+      var pips = el("span", "acpips"); pips.title = "Acceptance criteria status";
+      c.criteria.forEach(function (a) { pips.appendChild(el("span", "acpip " + a.state)); });
+      foot.appendChild(pips);
+    }
     card.appendChild(foot);
     // Derived rollup hint (punch-list 5): mismatch with stored status is informational.
     if (roll && roll.derived) {
@@ -1493,11 +1614,10 @@
     frag.appendChild(desc ? el("p", "field", desc)
       : el("p", "gap-note", phEmpty("description")));
 
-    // Acceptance criteria (schema rider 1) — a real ops-file column now.
-    frag.appendChild(el("h3", null, "Acceptance criteria"));
-    var acc = c.acceptance && c.acceptance.trim();
-    frag.appendChild(acc ? el("p", "field", acc)
-      : el("p", "gap-note", phEmpty("acceptance criteria")));
+    // Acceptance criteria — OP-038 status checklist (Rider 5). Renders the parsed
+    // per-criterion block (boxes + handles + state + updated date + typed notes);
+    // degrades to the empty-form placeholder when the item has no criteria block.
+    renderAcChecklist(frag, c);
 
     // Child tasks (name + status) + rollup.
     if (c.kind === "EP" || c.kind === "BT") {
@@ -1549,6 +1669,104 @@
     frag.appendChild(lk);
     return frag;
   }
+
+  // ===================== ACCEPTANCE-CRITERIA CHECKLIST (OP-038 — Rider 5) =====================
+  var AC_LABEL = P.AC_LABEL; // { red:"Not started", yellow:"In progress", green:"Done" }
+
+  // One note link: file:// -> copy-path affordance (slice-3 rule); http(s) -> new tab.
+  function acLinkChip(L) {
+    if (/^file:/i.test(L.url)) {
+      var path = decodeURIComponent(L.url.replace(/^file:\/+/i, "")).replace(/\//g, "\\");
+      var b = el("button", "nlink"); b.type = "button"; b.title = path;
+      b.appendChild(el("span", "ic", "📄")); b.appendChild(el("span", null, L.label || "Local folder"));
+      b.addEventListener("click", function (ev) {
+        ev.stopPropagation();
+        if (navigator.clipboard) navigator.clipboard.writeText(path).then(function () { toast("Path copied."); }, function () { toast("Copy failed — select the path and copy manually."); });
+        else toast("Clipboard unavailable — copy the path manually.");
+      });
+      return b;
+    }
+    var a = el("a", "nlink"); a.href = L.url; a.target = "_blank"; a.rel = "noopener";
+    a.appendChild(el("span", "ic", "🔗")); a.appendChild(el("span", null, L.label || L.url));
+    a.addEventListener("click", function (ev) { ev.stopPropagation(); });
+    return a;
+  }
+  function acHasNote(crit) { return !!(crit.proposed || crit.met || (crit.links && crit.links.trim())); }
+  function acNoteNode(crit) {
+    var box = el("div", "ac-note");
+    if (crit.proposed) { var b1 = el("div", "nblock"); b1.appendChild(el("div", "nlabel proposed", "Proposed solution")); b1.appendChild(el("p", "ntext", crit.proposed)); box.appendChild(b1); }
+    if (crit.met) { var b2 = el("div", "nblock"); b2.appendChild(el("div", "nlabel met", "How it's met")); b2.appendChild(el("p", "ntext", crit.met)); box.appendChild(b2); }
+    var links = parseLinks(crit.links);
+    if (links.length) { var b3 = el("div", "nblock"); b3.appendChild(el("div", "nlabel", "Links")); var ln = el("div", "nlinks"); links.forEach(function (L) { ln.appendChild(acLinkChip(L)); }); b3.appendChild(ln); box.appendChild(b3); }
+    return box;
+  }
+  function renderAcChecklist(frag, c) {
+    frag.appendChild(el("h3", null, "Acceptance criteria"));
+    var list = c.criteria;
+    if (!list || !list.length) { frag.appendChild(el("p", "gap-note", phEmpty("acceptance criteria"))); return; }
+    var n = P.acCounts(list);
+    frag.appendChild(el("p", "ac-summary", n.green + " of " + list.length + " done · " + n.yellow + " in progress · " + n.red + " not started"));
+    var ul = el("div", "ac-list");
+    list.forEach(function (crit) {
+      var wrap = el("div", "ac-item");
+      var row = el("div", "ac-row");
+      var box = el("div", "ac-box " + crit.state);
+      box.title = "Status: " + AC_LABEL[crit.state] + " — click to cycle 🟥→🟨→🟩";
+      box.addEventListener("click", function (e) { e.stopPropagation(); doAcWrite(c.filePath, c.id, crit.index); });
+      row.appendChild(box);
+      var txt = el("div", "ac-text");
+      txt.appendChild(el("span", "ac-handle", "AC-" + crit.index));
+      txt.appendChild(document.createTextNode(crit.text));
+      row.appendChild(txt);
+      var right = el("div", "ac-right");
+      right.appendChild(el("span", "ac-state " + crit.state, AC_LABEL[crit.state]));
+      if (crit.updated) right.appendChild(el("div", "ac-updated", "updated " + crit.updated));
+      row.appendChild(right);
+      wrap.appendChild(row);
+      // typed notes when present; otherwise the add-note affordance (mockup-faithful).
+      if (acHasNote(crit)) { wrap.appendChild(acNoteNode(crit)); }
+      else {
+        var add = el("button", "ac-addnote", crit.state === "green" ? "+ add “How it's met” note / link" : "+ add “Proposed solution” note");
+        add.addEventListener("click", function (e) { e.stopPropagation(); toast("Notes are authored in the ops file for now — per-criterion note editing is a follow-up."); });
+        wrap.appendChild(add);
+      }
+      ul.appendChild(wrap);
+    });
+    frag.appendChild(ul);
+  }
+
+  // Box-click write (Write Pattern 1 discipline): parse fresh -> cycle the one
+  // criterion's emoji + its updated date -> bump Last updated -> serialize -> PUT
+  // with the cached blob SHA. No confirm modal — the mockup cycles on click; the
+  // diff is minimal (the bullet line + Last updated) and a mis-click cycles forward.
+  function doAcWrite(path, id, acIndex) {
+    var f = STATE.files[path];
+    if (!f) { toast("File not loaded: " + path); return; }
+    var info = getToken();
+    if (!info || info.expired) { showSetup(); toast("Token missing/expired — reconnect, then re-apply."); return; }
+    var m2 = P.parse(f.model.raw);
+    var res = P.cycleCriterion(m2, id, acIndex, today());
+    if (!res) { toast("Could not locate " + id + " / AC-" + acIndex); return; }
+    P.bumpLastUpdated(m2, today());
+    var newText = P.serialize(m2);
+    var msg = "bucket-d: AC " + id + " AC-" + acIndex + " " + res.from + " → " + res.to;
+    setStatus("writing " + id + " AC-" + acIndex + "…");
+    ghPut(path, info.token, newText, f.sha, msg).then(function (resp) {
+      f.model = P.parse(newText);
+      f.sha = (resp && resp.content && resp.content.sha) || f.sha;
+      delete etags[path];
+      var shortSha = (resp && resp.commit && resp.commit.sha) ? resp.commit.sha.slice(0, 7) : "";
+      setStatus("");
+      render();
+      if (DRAWER_ID) renderDrawer();
+      toast("Committed " + (shortSha ? shortSha + " — " : "") + id + " AC-" + acIndex + " → " + AC_LABEL[res.to]);
+    }).catch(function (err) {
+      if (err.auth) { forgetToken(); setStatus("token rejected"); showSetup(); toast("Token rejected — reconnect and re-apply."); return; }
+      if (err.conflict) { setStatus("conflict — reloading"); toast(id + " AC-" + acIndex + " NOT written — the file changed on the server since you loaded it. Reloading; please re-apply."); loadAll(); return; }
+      setStatus("write error"); toast("AC write failed: " + err.message);
+    });
+  }
+
   $("drawer-close").addEventListener("click", closeDrawer);
   $("drawer-bg").addEventListener("click", closeDrawer);
   document.addEventListener("keydown", function (e) {
