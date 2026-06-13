@@ -170,6 +170,15 @@
   .mrow .mst { color: var(--ink-dim); white-space: nowrap; }
   .rollline { font-size: 11.5px; color: var(--ink-faint); margin-top: 7px; }
   .rollline.mismatch { color: var(--warn); }
+  /* OP-036 — clickable Parent row (kv grid) + clickable child / handle rows */
+  .parentlink { display: inline-flex; gap: 7px; align-items: center; padding: 2px 8px; border: 1px solid var(--line); border-radius: 6px; cursor: pointer; background: var(--bg); font-size: 12px; }
+  .parentlink:hover { border-color: var(--accent); }
+  .parentlink .plid { font-weight: 700; color: var(--accent); }
+  .mrow.clickable { cursor: pointer; }
+  .mrow.clickable:hover { background: var(--panel2); }
+  .mrow .chev { color: var(--ink-faint); margin-left: 6px; }
+  .pd-row.clickable { cursor: pointer; }
+  .pd-row.clickable:hover { border-color: var(--accent); }
 
   /* ---------- Drag and drop (punch-list 6 stretch) ---------- */
   .pcard.dragging { opacity: .4; }
@@ -1381,6 +1390,15 @@
     var rec = P.findRecord(f.model, DRAWER_ID); if (!rec) return null;
     return decorate(rec, f.meta);
   }
+  // OP-036 — resolve a card's parent (top-level item) in the SAME ops file, so the
+  // Parent row keys on (project, id) like every other join (§0 Rider 3). Returns a
+  // decorated card, or null when there is no parent / it isn't in the loaded data.
+  function parentCardOf(c) {
+    if (!c || !c.parentId) return null;
+    var f = STATE.files[c.filePath]; if (!f) return null;
+    var rec = P.findRecord(f.model, c.parentId); if (!rec) return null;
+    return decorate(rec, f.meta);
+  }
   function renderDrawer() {
     var c = currentDrawerCard();
     if (!c) { closeDrawer(); return; }
@@ -1446,6 +1464,22 @@
     var kv = el("div", "kv");
     kvRow(kv, "Type", c.type || TYPE_OF[c.kind] || c.kind || "—");
     kvRow(kv, "Project", "[" + c.projTag + "] " + c.project);
+    // OP-036 — Parent row: clickable, REPLACES this drawer with the parent's
+    // (single drawer, never stacked). Only file-backed: shown when the row carries
+    // a parentId; a link when the parent is in the loaded data, plain id otherwise.
+    if (c.parentId) {
+      var par = parentCardOf(c);
+      if (par) {
+        var pl = el("span", "parentlink");
+        pl.appendChild(el("span", "plid", par.id));
+        pl.appendChild(document.createTextNode(par.title || ""));
+        pl.title = "Open the parent's sidebar (replaces this one)";
+        pl.addEventListener("click", function () { openDrawer(par); });
+        kvRow(kv, "Parent", pl);
+      } else {
+        kvRow(kv, "Parent", c.parentId);
+      }
+    }
     kvRow(kv, "Status", statusSelectEl(c) || (c.status || "—"));      // editable in-popup
     kvRow(kv, "Priority", prioSelectEl(c) || (c.priority || "—"));    // editable in-popup
     if (c.cycle && c.cycle !== "—") kvRow(kv, "Cycle / Recurrence", c.cycle);
@@ -1472,12 +1506,19 @@
       if (kids.length) {
         var mk = el("div", "minik");
         kids.forEach(function (k) {
-          var row = el("div", "mrow");
+          // OP-036 — child rows are clickable: open this child's drawer, REPLACING
+          // the current content (single drawer). k is already a decorated op.
+          var row = el("div", "mrow clickable");
           var left = el("span");
           left.appendChild(el("span", "mid", k.id));
           left.appendChild(document.createTextNode(k.title || "(untitled)"));
           row.appendChild(left);
-          row.appendChild(el("span", "mst", k.status));
+          var right = el("span");
+          right.appendChild(el("span", "mst", k.status));
+          right.appendChild(el("span", "chev", "›"));
+          row.appendChild(right);
+          row.title = "Open this child's sidebar (replaces this one)";
+          row.addEventListener("click", function () { openDrawer(k); });
           mk.appendChild(row);
         });
         frag.appendChild(mk);
@@ -1571,7 +1612,10 @@
     return "Decision → R";
   }
   function pdRow(d) {
-    var row = el("div", "pd-row");
+    // OP-036 — PD rows are concrete listed work items in the H-01 handle view, so
+    // they open the drawer (replacing any open one). Participation-only prose rows
+    // (the §7 contribution parts above) stay as-is — they name no single item.
+    var row = el("div", "pd-row clickable");
     var head = el("div", "pd-head");
     head.appendChild(el("span", "mid", d.id));
     var pj = el("span", "proj", "[" + d.projTag + "]"); pj.style.background = d.color; head.appendChild(pj);
@@ -1582,6 +1626,8 @@
     PD_CLASSES.forEach(function (c) { enumrow.appendChild(el("span", "enum-chip" + (c === cls ? " active" : ""), c)); });
     row.appendChild(enumrow);
     if (d.notes) row.appendChild(el("div", "pd-notes", d.notes));
+    row.title = "Open this item's sidebar";
+    row.addEventListener("click", function () { openDrawer(d); });
     return row;
   }
   function renderHandleView(hid) {

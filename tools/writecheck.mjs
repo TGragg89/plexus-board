@@ -25,14 +25,19 @@ new Function("module", "globalThis", m[1])(sandbox.module, sandbox.globalThis);
 const P = sandbox.module.exports.parse ? sandbox.module.exports : sandbox.globalThis.Plexus;
 
 const DATA = join(root, "..", "plexus-bucket-d", "ops");
-const NEW_DATE = "2026-06-12"; // deliberately != the files' current 2026-06-11
+const NEW_DATE = "2026-06-13"; // deliberately != the files' current 2026-06-12 so the bump is a real edit
 
 // { kind: "status"|"priority", file, id, token (styled native), expect }
+// OP-036 added the two child-OP-row cases: a status/priority edit driven from a
+// CHILD row's drawer (BT-001 sub-table) must land as the same minimal 2-line diff
+// as a top-level edit — this is the W-21 drawer-half capability.
 const CASES = [
   { kind: "status",   file: "plexus_operations.md",        id: "EP-001", token: "`complete`", expect: "Done" },
   { kind: "status",   file: "laser_cutting_operations.md", id: "EP-004", token: "✅",          expect: "Done" },
   { kind: "priority", file: "plexus_operations.md",        id: "EP-001", token: "P1",          expect: "P1"   },
   { kind: "priority", file: "laser_cutting_operations.md", id: "EP-004", token: "P0",          expect: "P0"   },
+  { kind: "status",   file: "plexus_operations.md",        id: "OP-036", token: "`ready`",     expect: "Ready" },
+  { kind: "priority", file: "plexus_operations.md",        id: "OP-036", token: "P2",          expect: "P2"   },
 ];
 
 let failed = 0;
