@@ -234,6 +234,7 @@
   .wiz-field input[type=text], .wiz-field select, .wiz-field textarea { width: 100%; font: inherit; background: var(--panel); color: var(--ink); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; }
   .wiz-field textarea { min-height: 46px; resize: vertical; }
   .wiz-commit { display: block; margin: 10px 0 0; background: #00000044; border: 1px solid var(--line); border-radius: 6px; padding: 7px 9px; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 11.5px; color: var(--ink-dim); word-break: break-all; }
+  .wiz-hint { color: var(--ink-dim); font-size: 11.5px; margin: 10px 0 0; line-height: 1.45; }
 
   /* ---------- Acceptance-criteria checklist (OP-038; mockup BucketD_Mockup_AcceptanceChecklist_v0.1.html) ---------- */
   :root { --st-red: #f85149; --st-red-bg: #2a1416; --st-yellow: #d29922; --st-yellow-bg: #2a2110; --st-green: #3fb950; --st-green-bg: #102a16; }
@@ -869,6 +870,60 @@
     return true;
   }
 
+  // ---- Child-create (OP-040 Slice B — unified intake wizard, child path) ----
+  // A capture promoted to a CHILD work item becomes a new OP row in its parent's
+  // "(parent: <ID>)" sub-table. OP numbers are per-file (project-scoped, §0 Rider 3),
+  // so the next free id scans this file's OP rows. BACKLOG rows (Laser A8/B3) are
+  // a different kind and excluded.
+  function nextChildId(model) {
+    var max = 0;
+    (model.ops || []).forEach(function (r) {
+      if (r.kind === "OP") { var n = parseInt(String(r.id).slice(3), 10); if (n > max) max = n; }
+    });
+    var s = String(max + 1); while (s.length < 3) s = "0" + s;
+    return "OP-" + s;
+  }
+  // Insert a new child (OP) row into the (parent: <parentId>) sub-table, byte-faithfully
+  // (single targeted insert after the last existing child row). The row is built to match
+  // THAT sub-table's column order — derived from its header, like the parser — so it works
+  // for any child table whatever columns it carries. `fields`: { id, title, status (styled
+  // token), priority, description, acceptance, notes }. Status/priority are controlled
+  // tokens (not sanitized); free-text fields are sanitized. Returns the rowText on success,
+  // or false when the parent has no existing child sub-table (no place to put the row).
+  function insertChildRow(model, parentId, fields) {
+    var kids = (model.ops || []).filter(function (r) { return r.kind === "OP" && r.parentId === parentId; });
+    if (!kids.length) { model.warnings.push("No child sub-table for " + parentId); return false; }
+    var lines = indexLines(model.raw);
+    var minLine = Infinity, lastLine = -1;
+    kids.forEach(function (r) { if (r.line < minLine) minLine = r.line; if (r.line > lastLine) lastLine = r.line; });
+    // Header sits one line above the separator row that opens this table.
+    var sepLine = -1;
+    for (var i = minLine - 1; i >= 0; i--) {
+      if (isSepRow(lines[i].raw)) { sepLine = i; break; }
+      if (!isTableRow(lines[i].raw)) break;
+    }
+    if (sepLine < 1) { model.warnings.push("Child sub-table header not found for " + parentId); return false; }
+    var header = parseRowCells(lines[sepLine - 1].raw, lines[sepLine - 1].start);
+    if (!header) return false;
+    var titleCol = colIndex(header, "title"), statusCol = colIndex(header, "status"),
+        prioCol = colIndex(header, "priority"), descCol = colIndex(header, "description"),
+        acceptCol = colIndex(header, "acceptance"), noteCol = colIndex(header, "note");
+    var cells = header.map(function (h, idx) {
+      if (idx === 0) return fields.id;
+      if (idx === titleCol) return sanitizeCell(fields.title);
+      if (idx === statusCol) return fields.status || "";
+      if (idx === prioCol) return fields.priority || "";
+      if (idx === descCol) return sanitizeCell(fields.description || "");
+      if (idx === acceptCol) return sanitizeCell(fields.acceptance || "");
+      if (idx === noteCol) return sanitizeCell(fields.notes || "");
+      return "";
+    });
+    var rowText = "| " + cells.join(" | ") + " |";
+    var endPos = lines[lastLine].end; // offset of the '\n' closing the last child row
+    model.edits.push({ start: endPos, end: endPos, value: "\n" + rowText });
+    return rowText;
+  }
+
   // ---- Acceptance-criteria checklist (Phase 1 Spec §0 Rider 5, ratified at this build) ----
   // Per-criterion state lives in a "### Acceptance criteria detail" block keyed by
   // item id, BELOW the §3 tables. Each criterion is ONE bullet line:
@@ -941,7 +996,7 @@
     return c;
   }
 
-  var api = { mapStatus: mapStatus, parse: parse, serialize: serialize, indexLines: indexLines, normPrio: normPrio, findRecord: findRecord, setStatus: setStatus, setPriority: setPriority, setCell: setCell, sanitizeCell: sanitizeCell, rollupStatus: rollupStatus, bumpLastUpdated: bumpLastUpdated, insertTopLevelRow: insertTopLevelRow, nextLocalId: nextLocalId, nextCaptureId: nextCaptureId, insertCaptureRow: insertCaptureRow, parseAcDetail: parseAcDetail, cycleCriterion: cycleCriterion, acCounts: acCounts, AC_STATE: AC_STATE, AC_EMOJI: AC_EMOJI, AC_NEXT: AC_NEXT, AC_LABEL: AC_LABEL };
+  var api = { mapStatus: mapStatus, parse: parse, serialize: serialize, indexLines: indexLines, normPrio: normPrio, findRecord: findRecord, setStatus: setStatus, setPriority: setPriority, setCell: setCell, sanitizeCell: sanitizeCell, rollupStatus: rollupStatus, bumpLastUpdated: bumpLastUpdated, insertTopLevelRow: insertTopLevelRow, nextLocalId: nextLocalId, nextChildId: nextChildId, insertChildRow: insertChildRow, nextCaptureId: nextCaptureId, insertCaptureRow: insertCaptureRow, parseAcDetail: parseAcDetail, cycleCriterion: cycleCriterion, acCounts: acCounts, AC_STATE: AC_STATE, AC_EMOJI: AC_EMOJI, AC_NEXT: AC_NEXT, AC_LABEL: AC_LABEL };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   root.Plexus = api;
 })(typeof globalThis !== "undefined" ? globalThis : this);
@@ -2160,12 +2215,20 @@
     Mixed: "Mixed-shape project (§A.5.4). Two halves that never join — note which half this item belongs to in the description."
   };
   var CYCLE_LABEL = { "Epic": "Cycle (optional)", "Bet": "Appetite", "Maintenance Loop": "Recurrence" };
+  // OP-040 Slice B — the unified intake wizard handles top-level AND child items.
+  var TYPES_TOP = ["Epic", "Bet", "Maintenance Loop"];
+  var TYPES_CHILD = ["Feature", "Story", "Task", "Scope"];
+  var TOP_KIND = { "Epic": "EP", "Bet": "BT", "Maintenance Loop": "ML" };
 
-  function openWizard() {
+  // openWizard() — manual "+ New" (top-level default, no capture). openWizard(cap) —
+  // Promote a capture: the form is pre-filled from the capture's recommended-destination
+  // hint but EVERY field stays editable (the recommendation is never forced).
+  function openWizard(prefill) {
     if (!Object.keys(STATE.files).length) { toast("Load the board first."); return; }
     var info = getToken();
     if (!info || info.expired) { showSetup(); toast("Connect a token before creating items."); return; }
-    buildWizardForm();
+    $("wiz-title").textContent = prefill ? ("Promote " + prefill.id + " → work item") : "New work item";
+    buildWizardForm(prefill || null);
     wizErr(""); setWizBusy(false);
     $("wiz-bg").classList.remove("hidden");
   }
@@ -2174,49 +2237,95 @@
   function setWizBusy(b) { $("wiz-ok").disabled = b; $("wiz-ok").textContent = b ? "Creating…" : "Create"; }
   function cellSan(s) { return String(s == null ? "" : s).replace(/[|\r\n]+/g, " / ").trim(); }
 
-  function buildWizardForm() {
+  function buildWizardForm(prefill) {
     var body = $("wiz-body"); body.innerHTML = "";
+    var capId = prefill ? prefill.id : null;
     var intro = el("p", "wiz-intro"); body.appendChild(intro);
+
+    var levelSel = el("select");
+    [["top", "Top-level work item"], ["child", "Child task"]].forEach(function (o) { var op = el("option", null, o[1]); op.value = o[0]; levelSel.appendChild(op); });
+    levelSel.value = (prefill && prefill.recLevel === "top") ? "top" : (prefill ? "child" : "top");
 
     var projSel = el("select");
     OPS_FILES.forEach(function (f) { var o = el("option", null, f.project); o.value = f.path; projSel.appendChild(o); });
+    var projHit = prefill ? OPS_FILES.filter(function (f) { return f.project === prefill.recProject; })[0] : null;
+    if (projHit) projSel.value = projHit.path;
+
     var typeSel = el("select");
-    ["Epic", "Bet", "Maintenance Loop"].forEach(function (t) { var o = el("option", null, t); o.value = t; typeSel.appendChild(o); });
+    var parentSel = el("select");
     var titleIn = el("input"); titleIn.type = "text"; titleIn.placeholder = "One imperative sentence";
+    if (prefill && prefill.title) titleIn.value = prefill.title;
     var prioSel = el("select");
     PRIOS.forEach(function (p) { var o = el("option", null, p); o.value = p; prioSel.appendChild(o); }); prioSel.value = "P2";
     var cycleIn = el("input"); cycleIn.type = "text";
     var descIn = el("textarea"); descIn.placeholder = "What this item is.";
+    if (prefill && prefill.notes) descIn.value = prefill.notes;
     var accIn = el("textarea"); accIn.placeholder = "What \"done\" means (1–5 bullets).";
 
     function field(label, ctrl) { var w = el("div", "wiz-field"); w.appendChild(el("label", null, label)); w.appendChild(ctrl); body.appendChild(w); return w; }
-    field("Project", projSel); field("Type", typeSel); field("Title", titleIn); field("Priority", prioSel);
+    field("Level", levelSel); field("Project", projSel); field("Type", typeSel);
+    var parentField = field("Parent", parentSel);
+    field("Title", titleIn); field("Priority", prioSel);
     var cycleField = field("Cycle", cycleIn);
     field("Description", descIn); field("Acceptance criteria", accIn);
+    var hint = el("p", "wiz-hint"); body.appendChild(hint);
     var commit = el("code", "wiz-commit"); body.appendChild(commit);
 
+    function isTop() { return levelSel.value === "top"; }
     function meta() { return OPS_FILES.filter(function (f) { return f.path === projSel.value; })[0]; }
-    function kindOf() { return typeSel.value === "Bet" ? "BT" : typeSel.value === "Maintenance Loop" ? "ML" : "EP"; }
+    function rebuildTypes() {
+      var set = isTop() ? TYPES_TOP : TYPES_CHILD; typeSel.innerHTML = "";
+      set.forEach(function (t) { var o = el("option", null, t); o.value = t; typeSel.appendChild(o); });
+      if (prefill && prefill.recType && set.indexOf(prefill.recType) >= 0) typeSel.value = prefill.recType;
+      else if (!isTop()) typeSel.value = "Task";
+    }
+    function rebuildParents() {
+      parentSel.innerHTML = ""; var f = STATE.files[projSel.value];
+      var tops = f ? f.model.topLevel.filter(function (r) { return r.group === "Top-level work items"; }) : [];
+      if (!tops.length) { var o0 = el("option", null, "(no top-level items in this project)"); o0.value = ""; parentSel.appendChild(o0); return; }
+      tops.forEach(function (r) { var o = el("option", null, r.id + " · " + (r.title || r.type)); o.value = r.id; parentSel.appendChild(o); });
+      if (prefill && prefill.recParent && tops.some(function (r) { return r.id === prefill.recParent; })) parentSel.value = prefill.recParent;
+    }
+    function kindOf() { return isTop() ? TOP_KIND[typeSel.value] : "OP"; }
     function refresh() {
       var m = meta(); intro.textContent = SHAPE_INTRO[m.shape] || "";
+      parentField.style.display = isTop() ? "none" : "";
+      cycleField.style.display = isTop() ? "" : "none";
       cycleField.firstChild.textContent = CYCLE_LABEL[typeSel.value] || "Cycle";
       cycleIn.placeholder = typeSel.value === "Bet" ? "e.g. 6-week appetite" : typeSel.value === "Maintenance Loop" ? "e.g. monthly; next 2026-07-01" : "optional";
-      var kind = kindOf(), f = STATE.files[m.path];
-      var nextId = kind === "EP" ? "EP-### (from EP_Register on create)" : (f ? P.nextLocalId(f.model, kind) : kind + "-###");
-      commit.textContent = "bucket-d: intake " + nextId + " " + (titleIn.value.trim() || "<title>") + (kind === "EP" ? "   (+ EP-register allocate)" : "");
+      var f = STATE.files[m.path];
+      var nextId = isTop()
+        ? (kindOf() === "EP" ? "EP-### (from EP_Register on create)" : (f ? P.nextLocalId(f.model, kindOf()) : kindOf() + "-###"))
+        : (f ? P.nextChildId(f.model) : "OP-###");
+      var msgTail = isTop() ? (kindOf() === "EP" ? "   (+ EP-register allocate)" : "") : ("   (child of " + (parentSel.value || "?") + ")");
+      commit.textContent = "bucket-d: intake " + nextId + " " + (titleIn.value.trim() || "<title>") + msgTail;
+      hint.textContent = (prefill && !projHit)
+        ? ("Recommended project “" + prefill.recProject + "” isn’t on the board yet — pick a loaded project, or leave it for that project’s onboarding.")
+        : "The pre-filled destination is a recommendation — change Level / Type / Project / Parent to route anywhere.";
     }
-    projSel.addEventListener("change", refresh);
+    levelSel.addEventListener("change", function () { rebuildTypes(); rebuildParents(); refresh(); });
+    projSel.addEventListener("change", function () { rebuildParents(); refresh(); });
     typeSel.addEventListener("change", refresh);
+    parentSel.addEventListener("change", refresh);
     titleIn.addEventListener("input", refresh);
-    refresh();
+    rebuildTypes(); rebuildParents(); refresh();
 
     $("wiz-ok").onclick = function () {
-      var m = meta(), title = titleIn.value.trim(), kind = kindOf();
+      var m = meta(), title = titleIn.value.trim();
       if (!title) { wizErr("Title is required."); titleIn.focus(); return; }
-      if (kind === "BT" && !cycleIn.value.trim()) { wizErr("A Bet needs a fixed appetite (§A.4.2). Add one, or choose Epic."); return; }
-      wizErr("");
-      doIntake({ path: m.path, project: m.project, type: typeSel.value, kind: kind,
-        title: title, prio: prioSel.value, cycle: cycleIn.value.trim(), desc: descIn.value.trim(), accept: accIn.value.trim() });
+      if (isTop()) {
+        var kind = kindOf();
+        if (kind === "BT" && !cycleIn.value.trim()) { wizErr("A Bet needs a fixed appetite (§A.4.2). Add one, or choose Epic."); return; }
+        wizErr("");
+        doIntake({ path: m.path, project: m.project, type: typeSel.value, kind: kind, capId: capId,
+          title: title, prio: prioSel.value, cycle: cycleIn.value.trim(), desc: descIn.value.trim(), accept: accIn.value.trim() });
+      } else {
+        var parentId = parentSel.value;
+        if (!parentId) { wizErr("Pick a parent (or switch Level to top-level)."); return; }
+        wizErr("");
+        doChildIntake({ path: m.path, project: m.project, type: typeSel.value, parentId: parentId, capId: capId,
+          title: title, prio: prioSel.value, desc: descIn.value.trim(), accept: accIn.value.trim() });
+      }
     };
     $("wiz-cancel").onclick = closeWizard;
   }
@@ -2278,15 +2387,85 @@
         f.sha = (resp && resp.content && resp.content.sha) || f.sha;
         delete etags[spec.path]; if (spec.kind === "EP") delete etags[EP_REGISTER_PATH];
         var shortSha = (resp && resp.commit && resp.commit.sha) ? resp.commit.sha.slice(0, 7) : "";
-        closeWizard();
-        toast("Created " + id + (shortSha ? " — " + shortSha : "") + (spec.kind === "EP" ? " (EP_Register bumped)" : ""));
-        loadAll(); // re-fetch committed state (fresh shas + board)
+        return afterCreate(id, shortSha, spec.capId, spec.kind === "EP" ? " (EP_Register bumped)" : "");
       });
     }).catch(function (err) {
       setWizBusy(false);
       if (err.auth) { forgetToken(); showSetup(); toast("Token rejected — reconnect and retry the intake."); return; }
       if (err.conflict) { wizErr("The file changed on the server since load. Close, Reload, then retry."); return; }
       wizErr("Create failed: " + err.message);
+    });
+  }
+
+  // Child intake (OP-040 Slice B). Promote/create a child OP row in its parent's §3
+  // sub-table via insertChildRow (the byte-faithful single-insert discipline). No
+  // EP_Register touch (OP ids are per-file). Status seeds the file's Backlog token.
+  function doChildIntake(spec) {
+    var f = STATE.files[spec.path];
+    if (!f) { wizErr("File not loaded."); return; }
+    var info = getToken();
+    if (!info || info.expired) { showSetup(); toast("Token missing/expired — reconnect, then retry."); return; }
+    var token = info.token;
+    var statusToken = VOCABS[f.meta.vocab].token["Backlog"];
+    setWizBusy(true);
+    var m2 = P.parse(f.model.raw);
+    var id = P.nextChildId(m2);
+    var rowText = P.insertChildRow(m2, spec.parentId, {
+      id: id, title: spec.title, status: statusToken, priority: spec.prio,
+      description: spec.desc, acceptance: spec.accept, notes: ""
+    });
+    if (!rowText) {
+      setWizBusy(false);
+      wizErr(spec.parentId + " has no child sub-table yet — pick a parent that already has children, or create this as a top-level item.");
+      return;
+    }
+    P.bumpLastUpdated(m2, today());
+    var newText = P.serialize(m2);
+    var opsMsg = "bucket-d: intake " + id + " (child of " + spec.parentId + ") " + P.sanitizeCell(spec.title);
+    ghPut(spec.path, token, newText, f.sha, opsMsg).then(function (resp) {
+      f.model = P.parse(newText);
+      f.sha = (resp && resp.content && resp.content.sha) || f.sha;
+      delete etags[spec.path];
+      var shortSha = (resp && resp.commit && resp.commit.sha) ? resp.commit.sha.slice(0, 7) : "";
+      return afterCreate(id, shortSha, spec.capId, " under " + spec.parentId);
+    }).catch(function (err) {
+      setWizBusy(false);
+      if (err.auth) { forgetToken(); showSetup(); toast("Token rejected — reconnect and retry the intake."); return; }
+      if (err.conflict) { wizErr("The file changed on the server since load. Close, Reload, then retry."); return; }
+      wizErr("Create failed: " + err.message);
+    });
+  }
+
+  // Shared create tail. If the item came from a capture (capId), annotate that capture's
+  // Notes with a "→ promoted to <ID>" marker (audit trail — the row is kept, not deleted)
+  // as a second minimal-diff commit on captures.md, THEN close + toast + reload. The
+  // create already committed, so an annotate failure is non-fatal (it's reported, retryable
+  // from the Captures surface). Returns a promise.
+  function afterCreate(id, shortSha, capId, baseNote) {
+    function finish(extra) {
+      closeWizard();
+      toast("Created " + id + (shortSha ? " — " + shortSha : "") + (baseNote || "") + (extra || ""));
+      loadAll(); // re-fetch committed state (fresh shas + board + captures)
+    }
+    if (!capId) { finish(""); return Promise.resolve(); }
+    var cf = STATE.captures;
+    if (!cf) { finish(" (capture not loaded — not annotated)"); return Promise.resolve(); }
+    var info = getToken();
+    if (!info || info.expired) { finish(" (capture not annotated — reconnect)"); return Promise.resolve(); }
+    var capRec = P.findRecord(cf.model, capId);
+    var base = (capRec && capRec.notes) ? capRec.notes : "";
+    if (base.indexOf("→ promoted to") >= 0) { finish(""); return Promise.resolve(); } // already promoted
+    var marker = "→ promoted to " + id + " (" + today() + ")";
+    var newNotes = base ? (base + " · " + marker) : marker;
+    var m3 = P.parse(cf.model.raw);
+    if (!P.setCell(m3, capId, "notes", newNotes)) { finish(" (capture " + capId + " not annotated)"); return Promise.resolve(); }
+    P.bumpLastUpdated(m3, today());
+    var capText = P.serialize(m3);
+    return ghPut(CAPTURES_PATH, info.token, capText, cf.sha, "bucket-d: capture " + capId + " promoted → " + id).then(function (resp2) {
+      cf.model = P.parse(capText); cf.sha = (resp2 && resp2.content && resp2.content.sha) || cf.sha; delete etags[CAPTURES_PATH];
+      finish(" · " + capId + " annotated");
+    }).catch(function () {
+      finish(" (created; capture annotate failed — retry from the Captures surface)");
     });
   }
 
@@ -2343,7 +2522,7 @@
     else if (name === "registers") renderRegisters();
   }
 
-  // ---- Captures surface (writable: read + add + edit Notes; Promote = Slice B) ----
+  // ---- Captures surface (writable: read + add + edit Notes + Promote via the wizard) ----
   function renderCaptures() {
     var host = $("surface-captures"); host.innerHTML = "";
     host.appendChild(el("div", "crumb", "Lists · capture queue (class 1) — Parking Lot + Wishlist, merged"));
@@ -2356,7 +2535,7 @@
     }
     var caps = STATE.captures.model.captures;
     host.appendChild(el("div", "reach", "⤓ repo-canonical store — the board reads & writes ops/captures.md (merges the Drive Parking Lot + post-MVP Wishlist)"));
-    host.appendChild(el("p", "ssub", "A dumping ground by design. Anyone (you or Claude) adds a capture with free Notes; triage is optional. Promote opens the unified intake wizard pre-filled from the row — the recommended destination is editable, never forced. (Slice A: read + add + edit Notes are live; Promote ships in Slice B.)"));
+    host.appendChild(el("p", "ssub", "A dumping ground by design. Anyone (you or Claude) adds a capture with free Notes; triage is optional. Promote opens the unified intake wizard pre-filled from the row — the recommended destination is editable, never forced. Promoting a capture creates a top-level or child work item and annotates the row (audit trail)."));
     var tb = el("div", "toolbar");
     var addBtn = el("button", "primary", "+ Add capture"); tb.appendChild(addBtn);
     tb.appendChild(el("span", "muted", caps.length + " captures · free capture now, optional triage later"));
@@ -2381,7 +2560,10 @@
   }
   function captureRowEl(c) {
     var tr = el("tr");
-    var td0 = el("td"); td0.appendChild(el("div", "capid", c.id)); td0.appendChild(el("div", "capttl", c.title)); tr.appendChild(td0);
+    var td0 = el("td"); td0.appendChild(el("div", "capid", c.id)); td0.appendChild(el("div", "capttl", c.title));
+    var promoted = (c.notes || "").indexOf("→ promoted to") >= 0;
+    if (promoted) td0.appendChild(el("span", "schip teal", "promoted"));
+    tr.appendChild(td0);
     var td1 = el("td");
     var notes = el("div", "cap-notes"); notes.setAttribute("contenteditable", "true"); notes.textContent = c.notes || ""; notes.setAttribute("data-orig", c.notes || "");
     notes.addEventListener("blur", function () {
@@ -2395,9 +2577,9 @@
     rec.appendChild(el("div", null, (c.recProject || "—") + (c.recParent && c.recParent !== "—" ? " · " + c.recParent : "")));
     td2.appendChild(rec); tr.appendChild(td2);
     var td3 = el("td"); td3.appendChild(el("span", "capsrc", c.source || "")); tr.appendChild(td3);
-    var td4 = el("td"); var pb = el("button", null, "Promote →");
-    pb.title = "Opens the unified intake wizard (Slice B)";
-    pb.addEventListener("click", function () { toast("Promote opens the unified intake wizard in Slice B (next session) — pre-filled from this row, destination editable."); });
+    var td4 = el("td"); var pb = el("button", null, promoted ? "Promote again →" : "Promote →");
+    pb.title = "Open the unified intake wizard — pre-filled from this capture, every field editable (the recommended destination is never forced)";
+    pb.addEventListener("click", function () { openWizard(c); });
     td4.appendChild(pb); tr.appendChild(td4);
     return tr;
   }
@@ -2477,7 +2659,7 @@
         var row = el("div", "irow");
         row.appendChild(el("span", "istat", r.status || "Idea"));
         var pb = el("button", null, "Promote to project →");
-        pb.addEventListener("click", function () { toast("Runs the New Project Playbook go/no-go (stub this build)."); });
+        pb.addEventListener("click", function () { toast("Promote-to-project runs the New Project Playbook go/no-go — not built yet (tracked: Plexus > BT-001 > OP-040; capability W-08 / CAP-026)."); });
         row.appendChild(pb); card.appendChild(row); grid.appendChild(card);
       });
       host.appendChild(grid);
@@ -2519,7 +2701,7 @@
     else { box.appendChild(el("p", "ssub", "EP_Register not loaded.")); }
     var ln2 = el("div", "legend-note");
     ln2.appendChild(el("h5", null, "CB_Register (Strategic Goals)"));
-    ln2.appendChild(el("p", "cap-rec", "Drive-canonical (C:\\Users\\TJgra\\My Drive\\Plexus\\CB_Register.md) — outside the app's GitHub reach. A repo mirror (like Pie) is the Slice-B follow-up if a live view is wanted."));
+    ln2.appendChild(el("p", "cap-rec", "Drive-canonical (C:\\Users\\TJgra\\My Drive\\Plexus\\CB_Register.md) — outside the app's GitHub reach. A repo mirror (like Pie) would be needed for a live view — not built yet (tracked: Plexus > BT-001 > OP-040; Drive-reach, see capture W-13 / CAP-031)."));
     box.appendChild(ln2);
   }
 

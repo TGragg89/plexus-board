@@ -46,8 +46,12 @@ for (const c of LOSSLESS) {
   if (list.length !== c.n) { fail(`${c.id}: ${list.length} criteria, want ${c.n}`); continue; }
   const joined = list.map((x) => x.text).join(" / ");
   if (joined !== c.orig) { fail(`${c.id}: lossy migration\n   got: ${JSON.stringify(joined)}\n   exp: ${JSON.stringify(c.orig)}`); continue; }
-  if (!list.every((x) => x.state === "red")) { fail(`${c.id}: not all seeded 🟥`); continue; }
-  ok(`${c.id}: ${c.n} criteria, all 🟥, join(" / ") === original freetext (lossless)`);
+  // Migration seeds every criterion 🟥, but live box-clicks legitimately advance state
+  // (e.g. Tim's dogfooding on OP-034). Losslessness is about TEXT — assert each state is
+  // valid rather than pinning all-🟥, so the harness survives real use (CAP-015 hygiene).
+  if (!list.every((x) => x.state === "red" || x.state === "yellow" || x.state === "green")) { fail(`${c.id}: a criterion has an invalid state`); continue; }
+  const states = list.map((x) => P.AC_EMOJI[x.state]).join("");
+  ok(`${c.id}: ${c.n} criteria [${states}], join(" / ") === original freetext (lossless, text-stable through state changes)`);
 }
 
 // ---- (2) box-click write: cycle one criterion, exactly 2 lines change, re-parse ----
