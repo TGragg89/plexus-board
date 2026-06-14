@@ -273,6 +273,63 @@
   .ac-note .nlink .ic { font-size: 11px; }
   .ac-addnote { font-size: 11px; color: var(--ink-faint); background: none; border: 1px dashed var(--line); padding: 3px 8px; border-radius: 6px; margin: 2px 10px 9px 40px; }
   .ac-addnote:hover { border-color: var(--accent); color: var(--ink); }
+
+  /* ---------- OP-040 off-board-list surfaces (left-nav + Captures / Pie / Registers) ---------- */
+  #appmain { flex: 1; display: flex; min-height: 0; }
+  #sidenav { flex: none; width: 210px; background: var(--panel); border-right: 1px solid var(--line); padding: 12px 8px; overflow: auto; }
+  #sidenav h4 { font-size: 10.5px; letter-spacing: .5px; text-transform: uppercase; color: var(--ink-faint); margin: 16px 8px 5px; }
+  #sidenav h4:first-child { margin-top: 2px; }
+  #sidenav h4 .navnew { color: var(--accent); font-weight: 700; }
+  #sidenav a { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 7px 10px; border-radius: 7px; color: var(--ink); cursor: pointer; font-size: 13px; text-decoration: none; }
+  #sidenav a:hover { background: var(--panel2); }
+  #sidenav a.on { background: var(--accent-dim); color: #fff; font-weight: 600; }
+  #sidenav a .ct { font-size: 10.5px; color: var(--ink-faint); font-weight: 400; }
+  #sidenav a.on .ct { color: #cfe2ff; }
+  .board { flex: 1; } /* the board is now one surface inside #appmain */
+  .surface { flex: 1; overflow: auto; padding: 18px 22px 44px; }
+  .surface .crumb { font-size: 11px; color: var(--ink-faint); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 4px; }
+  .surface h2.shd { font-size: 17px; font-weight: 700; margin: 0 0 4px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .surface .ssub { color: var(--ink-dim); max-width: 770px; margin: 0 0 14px; font-size: 13px; line-height: 1.55; }
+  .surface .reach { display: inline-flex; gap: 7px; align-items: center; font-size: 12px; color: var(--warn); background: #d2992216; border: 1px solid #d2992233; padding: 4px 10px; border-radius: 8px; margin-bottom: 12px; }
+  .schip { font-size: 10.5px; font-weight: 700; padding: 2px 8px; border-radius: 10px; background: var(--panel2); color: var(--ink-dim); border: 1px solid var(--line); }
+  .schip.teal { color: #56d3a8; border-color: #1f6f5744; background: #0d2a22; }
+  .schip.accent { color: #cfe2ff; border-color: var(--accent-dim); background: #16385f; }
+  /* Captures table */
+  .captbl { width: 100%; border-collapse: collapse; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+  .captbl th, .captbl td { text-align: left; padding: 8px 11px; border-bottom: 1px solid var(--line); vertical-align: top; font-size: 12.5px; }
+  .captbl th { background: var(--panel2); color: var(--ink-faint); font-size: 10.5px; text-transform: uppercase; letter-spacing: .4px; }
+  .captbl tr:last-child td { border-bottom: none; }
+  .captbl .capid { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 11px; color: var(--ink-dim); font-weight: 700; }
+  .captbl .capttl { font-weight: 600; }
+  .captbl .capsrc { font-size: 11px; color: var(--ink-faint); white-space: nowrap; }
+  .cap-notes { font-size: 12px; color: var(--ink); border: 1px dashed var(--line); border-radius: 6px; padding: 5px 7px; min-height: 28px; outline: none; }
+  .cap-notes:focus { border-style: solid; border-color: var(--accent); background: #0c1117; }
+  .cap-rec { font-size: 11px; color: var(--ink-faint); white-space: nowrap; }
+  .cap-rec b { color: var(--ink-dim); font-weight: 600; }
+  .surface .toolbar { display: flex; gap: 10px; align-items: center; margin-bottom: 12px; flex-wrap: wrap; }
+  .surface .toolbar .muted { font-size: 12px; color: var(--ink-faint); }
+  .addcap { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; margin-bottom: 14px; }
+  .addcap label { display: block; font-size: 12px; color: var(--ink-dim); margin: 6px 0 3px; }
+  .addcap input, .addcap textarea { width: 100%; font: inherit; font-size: 13px; background: var(--bg); color: var(--ink); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; }
+  .addcap textarea { min-height: 44px; resize: vertical; }
+  .addcap .acts { margin-top: 10px; display: flex; gap: 8px; }
+  /* Pie idea cards */
+  .theme-hd { font-size: 12px; font-weight: 700; color: var(--ink-dim); text-transform: uppercase; letter-spacing: .5px; margin: 18px 0 8px; }
+  .ideagrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px; }
+  .ideacard { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 9px 11px; }
+  .ideacard b { font-size: 13px; }
+  .ideacard .im { color: var(--ink-dim); font-size: 11.5px; margin: 4px 0 8px; line-height: 1.45; }
+  .ideacard .irow { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+  .ideacard .istat { font-size: 10.5px; color: var(--ink-faint); }
+  /* Registers reference */
+  .reftbl { width: 100%; border-collapse: collapse; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+  .reftbl th, .reftbl td { text-align: left; padding: 8px 11px; border-bottom: 1px solid var(--line); font-size: 12.5px; }
+  .reftbl th { background: var(--panel2); color: var(--ink-faint); font-size: 10.5px; text-transform: uppercase; }
+  .reftbl tr:last-child td { border-bottom: none; }
+  .legend-note { margin-top: 22px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; }
+  .legend-note h5 { margin: 0 0 8px; font-size: 12.5px; }
+  /* hide board-only header controls when not on the board surface */
+  #app:not(.surf-board) .board-only { display: none !important; }
 </style>
 </head>
 <body>
@@ -322,12 +379,12 @@
       <span class="meta" id="hdr-date"></span>
       <span class="spacer"></span>
       <span class="meta" id="hdr-status"></span>
-      <label class="hsel">View <select id="handle-sel" title="Cross-project handle views (H-NN)"></select></label>
-      <button id="new-btn" class="primary" title="Create a new work item (intake wizard)">+ New</button>
+      <label class="hsel board-only">View <select id="handle-sel" title="Cross-project handle views (H-NN)"></select></label>
+      <button id="new-btn" class="primary board-only" title="Create a new work item (intake wizard)">+ New</button>
       <button id="reload-btn">Reload</button>
       <button id="forget-btn" title="Remove the stored token from this browser">Forget token</button>
     </div>
-    <div class="filters">
+    <div class="filters board-only">
       <label>Project <span class="ms" id="ms-project"></span></label>
       <label>Type <span class="ms" id="ms-type"></span></label>
       <label>Priority <span class="ms" id="ms-priority"></span></label>
@@ -339,7 +396,9 @@
     </div>
   </header>
 
-  <div class="board">
+  <div id="appmain">
+  <nav id="sidenav" aria-label="Surfaces"></nav>
+  <div class="board" id="surface-board">
     <div class="cols">
       <div class="colhead">Backlog <span class="cnt" id="c-backlog">0</span></div>
       <div class="colhead">Ready <span class="cnt" id="c-ready">0</span><span class="wip">WIP limit: 5</span></div>
@@ -355,6 +414,11 @@
       <div class="note">These items have no declared top-level Epic / Bet / Maintenance Loop (Phase 1 §A.6.1 not yet applied to the pilot files). They are shown here so the board is usable. Per the §B.1 contract they are children, not swimlane cards — surfacing rule pending Tim's decision.</div>
       <div id="ungrouped-body"></div>
     </details>
+  </div>
+  <!-- OP-040 off-board-list surfaces (left-nav) -->
+  <section class="surface hidden" id="surface-captures"></section>
+  <section class="surface hidden" id="surface-pie"></section>
+  <section class="surface hidden" id="surface-registers"></section>
   </div>
 </div>
 
@@ -463,7 +527,7 @@
   function isTableRow(s) { return /^\s*\|.*\|\s*$/.test(s); }
   function isSepRow(s) { return /^\s*\|?[\s:|-]+\|?\s*$/.test(s) && s.indexOf("-") >= 0; }
 
-  var ID_RE = /\b(EP|BT|ML|OP|PD|CB|R)-(\d{3})\b/;
+  var ID_RE = /\b(EP|BT|ML|OP|PD|CB|CAP|R)-(\d{3})\b/;  // CAP = off-board Captures store (OP-040)
   var BACKLOG_RE = /^[A-Z]\d+(\s*\+\s*[A-Z]\d+)?$/; // A8, B3, C4, "A7 + B4"
 
   // Find the index of the column whose header contains `needle` (case-insensitive).
@@ -480,7 +544,7 @@
     var model = {
       raw: text, edits: [], warnings: [],
       preamble: {}, topLevel: [], ops: [], decisions: [],
-      cbs: [], resolved: [], handles: []
+      cbs: [], resolved: [], handles: [], captures: []
     };
     var lines = indexLines(text);
 
@@ -521,6 +585,12 @@
         var descCol = colIndex(header, "description");
         var acceptCol = colIndex(header, "acceptance");
         var linksCol = colIndex(header, "links");
+        // OP-040 Captures store: recommended-destination hint columns (CAP rows only;
+        // -1 in every ops table, which has none of these column names).
+        var levelCol = colIndex(header, "level");
+        var recProjCol = colIndex(header, "project");
+        var recParentCol = colIndex(header, "parent");
+        var addedCol = colIndex(header, "added");
         // §7 cross-project handle table: "Handle | Participating? | contribution".
         var handleCol = colIndex(header, "handle");
         var partCol = colIndex(header, "participating");
@@ -595,6 +665,15 @@
               model.resolved.push(rec);
             } else if (kind === "CB") {
               model.cbs.push(rec);
+            } else if (kind === "CAP") {
+              // OP-040 Captures store row: carry the editable Notes + the recommended-
+              // destination hint (recommendation only; the wizard lets the user change it).
+              rec.recLevel = get(levelCol);
+              rec.recType = get(typeCol);
+              rec.recProject = get(recProjCol);
+              rec.recParent = get(recParentCol);
+              rec.added = get(addedCol);
+              model.captures.push(rec);
             }
           } else if (BACKLOG_RE.test(first)) {
             // Laser active-backlog rows (A8/B3/C4) — treat as ungrouped work items
@@ -644,7 +723,7 @@
 
   // Locate a parsed record by id across all pools.
   function findRecord(model, id) {
-    var pools = [model.topLevel, model.ops, model.decisions, model.resolved, model.cbs];
+    var pools = [model.topLevel, model.ops, model.decisions, model.resolved, model.cbs, model.captures];
     for (var p = 0; p < pools.length; p++)
       for (var i = 0; i < pools[p].length; i++)
         if (pools[p][i].id === id) return pools[p][i];
@@ -762,6 +841,34 @@
     return kind + "-" + s;
   }
 
+  // ---- Captures store (OP-040) primitives ----
+  // The Captures store (ops/captures.md) is a single markdown table of CAP-NNN rows.
+  // Editing a capture's Notes reuses setCell (Write Pattern 1); adding a capture appends
+  // one row (the same byte-faithful single-insert discipline as insertTopLevelRow).
+
+  // Next free CAP-NNN (3-digit zero-padded). Scans the captures pool; never reuses.
+  function nextCaptureId(model) {
+    var max = 0;
+    (model.captures || []).forEach(function (r) {
+      var n = parseInt(String(r.id).slice(4), 10); if (n > max) max = n;
+    });
+    var s = String(max + 1); while (s.length < 3) s = "0" + s;
+    return "CAP-" + s;
+  }
+  // Append one row to the Captures table, byte-faithfully (single targeted insert at the
+  // end of the last CAP row's line). rowText = full pipe-delimited row, no trailing newline.
+  function insertCaptureRow(model, rowText) {
+    var rows = model.captures || [];
+    if (!rows.length) { model.warnings.push("Captures table not found"); return false; }
+    var lines = indexLines(model.raw);
+    var lastLine = -1;
+    for (var i = 0; i < rows.length; i++) if (rows[i].line > lastLine) lastLine = rows[i].line;
+    if (lastLine < 0 || lastLine >= lines.length) return false;
+    var endPos = lines[lastLine].end; // offset of the '\n' closing the last row
+    model.edits.push({ start: endPos, end: endPos, value: "\n" + rowText });
+    return true;
+  }
+
   // ---- Acceptance-criteria checklist (Phase 1 Spec §0 Rider 5, ratified at this build) ----
   // Per-criterion state lives in a "### Acceptance criteria detail" block keyed by
   // item id, BELOW the §3 tables. Each criterion is ONE bullet line:
@@ -834,7 +941,7 @@
     return c;
   }
 
-  var api = { mapStatus: mapStatus, parse: parse, serialize: serialize, indexLines: indexLines, normPrio: normPrio, findRecord: findRecord, setStatus: setStatus, setPriority: setPriority, setCell: setCell, sanitizeCell: sanitizeCell, rollupStatus: rollupStatus, bumpLastUpdated: bumpLastUpdated, insertTopLevelRow: insertTopLevelRow, nextLocalId: nextLocalId, parseAcDetail: parseAcDetail, cycleCriterion: cycleCriterion, acCounts: acCounts, AC_STATE: AC_STATE, AC_EMOJI: AC_EMOJI, AC_NEXT: AC_NEXT, AC_LABEL: AC_LABEL };
+  var api = { mapStatus: mapStatus, parse: parse, serialize: serialize, indexLines: indexLines, normPrio: normPrio, findRecord: findRecord, setStatus: setStatus, setPriority: setPriority, setCell: setCell, sanitizeCell: sanitizeCell, rollupStatus: rollupStatus, bumpLastUpdated: bumpLastUpdated, insertTopLevelRow: insertTopLevelRow, nextLocalId: nextLocalId, nextCaptureId: nextCaptureId, insertCaptureRow: insertCaptureRow, parseAcDetail: parseAcDetail, cycleCriterion: cycleCriterion, acCounts: acCounts, AC_STATE: AC_STATE, AC_EMOJI: AC_EMOJI, AC_NEXT: AC_NEXT, AC_LABEL: AC_LABEL };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   root.Plexus = api;
 })(typeof globalThis !== "undefined" ? globalThis : this);
@@ -860,6 +967,8 @@
       shape: "Backlog", owner: "Claude CI", root: "C:\\Users\\TJgra\\My Drive\\Claude Continuous Improvement\\Claude CI" }
   ];
   var EP_REGISTER_PATH = "ops/EP_Register.md"; // portfolio-global Epic allocator (slice 3 intake)
+  var CAPTURES_PATH = "ops/captures.md";       // OP-040 writable Captures store (class-1 lists)
+  var PIE_PATH = "ops/pie_mirror.md";          // OP-040 read-only Pie-in-the-Sky mirror (class 2)
   var PROJECT_COLORS = { "Plexus": "#8957e5", "Laser Cutting": "#e3603a", "Claude CI": "#0969da" };
   // Priority is plain text (P0..P3) in both pilot files' vocabularies — file-native,
   // no styling. Same write target set for every file (punch-list 2).
@@ -918,7 +1027,7 @@
   });
 
   function showSetup() { $("app").style.display = "none"; $("setup").style.display = "block"; }
-  function showApp() { $("setup").style.display = "none"; $("app").style.display = "flex"; }
+  function showApp() { $("setup").style.display = "none"; $("app").style.display = "flex"; $("app").className = "surf-" + ACTIVE_SURFACE; }
 
   // ---- Byte-faithful base64 <-> UTF-8 (transport must not corrupt the blob) ----
   function b64ToText(b64) {
@@ -982,15 +1091,27 @@
     showApp();
     setStatus("loading…");
     var token = info.token;
-    Promise.all(OPS_FILES.map(function (f) {
+    var loads = OPS_FILES.map(function (f) {
       return ghGet(f.path, token).then(function (r) {
         if (!r.notModified) STATE.files[f.path] = { meta: f, model: P.parse(r.body), sha: r.sha };
         return true;
       });
-    })).then(function () {
+    });
+    // OP-040 off-board lists: the writable Captures store + the read-only Pie mirror.
+    // A missing/404 list must NOT break the board — catch non-auth errors and record
+    // them so the board still renders; auth errors still propagate.
+    loads.push(ghGet(CAPTURES_PATH, token).then(function (r) {
+      if (!r.notModified) { STATE.captures = { model: P.parse(r.body), sha: r.sha }; STATE.capturesErr = null; }
+    }).catch(function (e) { if (e.auth) throw e; STATE.capturesErr = e.message; }));
+    loads.push(ghGet(PIE_PATH, token).then(function (r) {
+      if (!r.notModified) { STATE.pieRaw = r.body; STATE.pieErr = null; }
+    }).catch(function (e) { if (e.auth) throw e; STATE.pieErr = e.message; }));
+    Promise.all(loads).then(function () {
       STATE.lastLoaded = Date.now();
       setStatus("");
       render();
+      buildSideNav();
+      if (ACTIVE_SURFACE !== "board") showSurface(ACTIVE_SURFACE); // refresh a non-board surface after reload
       maybeOfferReapply();
     }).catch(function (err) {
       if (err.auth) { setStatus("token rejected"); showSetup(); toast("Token rejected — please re-enter."); return; }
@@ -2175,6 +2296,232 @@
   document.addEventListener("keydown", function (e) {
     if (e.key === "Escape" && !$("wiz-bg").classList.contains("hidden")) closeWizard();
   });
+
+  // ===================== OFF-BOARD-LIST SURFACES (OP-040 — left-nav) =====================
+  // Left-nav surfaces beside the board: Captures (writable, class 1), Pie in the Sky
+  // (read-only mirror, class 2), Registers (reference, class 3). The board itself is
+  // unchanged — it's just one surface now. Visual contract: BucketD_Mockup_OffBoardLists_v0.1.html.
+  var ACTIVE_SURFACE = "board";
+  var NAV_GROUPS = [
+    { name: "Work", isNew: false, items: [{ id: "board", label: "Portfolio board", ct: "work" }] },
+    { name: "Lists", isNew: true, items: [{ id: "captures", label: "Captures", ct: "writable" }, { id: "pie", label: "Pie in the Sky", ct: "ideas" }] },
+    { name: "Reference", isNew: false, items: [{ id: "registers", label: "Registers (CB / EP)", ct: "ledger" }] }
+  ];
+  function surfaceHost(id) { return $(id === "board" ? "surface-board" : "surface-" + id); }
+  function navCount(id) {
+    if (id === "captures") return STATE.captures ? String(STATE.captures.model.captures.length) : "";
+    if (id === "board") { var n = Object.keys(STATE.files).length ? allTopLevel().length : 0; return n ? String(n) : ""; }
+    return "";
+  }
+  function buildSideNav() {
+    var nav = $("sidenav"); if (!nav) return; nav.innerHTML = "";
+    NAV_GROUPS.forEach(function (g) {
+      var h = el("h4"); h.appendChild(document.createTextNode(g.name + " "));
+      if (g.isNew) h.appendChild(el("span", "navnew", "new"));
+      nav.appendChild(h);
+      g.items.forEach(function (it) {
+        var a = el("a"); a.setAttribute("data-surf", it.id);
+        a.appendChild(el("span", null, it.label));
+        a.appendChild(el("span", "ct", navCount(it.id) || it.ct));
+        if (it.id === ACTIVE_SURFACE) a.classList.add("on");
+        a.addEventListener("click", function () { showSurface(it.id); });
+        nav.appendChild(a);
+      });
+    });
+  }
+  function showSurface(name) {
+    ACTIVE_SURFACE = name;
+    $("app").className = "surf-" + name; // CSS hides .board-only controls off-board
+    ["board", "captures", "pie", "registers"].forEach(function (s) {
+      var host = surfaceHost(s); if (host) host.classList.toggle("hidden", s !== name);
+    });
+    var nav = $("sidenav");
+    if (nav) Array.prototype.forEach.call(nav.querySelectorAll("a"), function (a) { a.classList.toggle("on", a.getAttribute("data-surf") === name); });
+    if (name === "board") render();
+    else if (name === "captures") renderCaptures();
+    else if (name === "pie") renderPie();
+    else if (name === "registers") renderRegisters();
+  }
+
+  // ---- Captures surface (writable: read + add + edit Notes; Promote = Slice B) ----
+  function renderCaptures() {
+    var host = $("surface-captures"); host.innerHTML = "";
+    host.appendChild(el("div", "crumb", "Lists · capture queue (class 1) — Parking Lot + Wishlist, merged"));
+    var hd = el("h2", "shd"); hd.appendChild(document.createTextNode("Captures "));
+    hd.appendChild(el("span", "schip teal", "writable")); hd.appendChild(el("span", "schip accent", "add · edit Notes · promote"));
+    host.appendChild(hd);
+    if (!STATE.captures) {
+      host.appendChild(el("p", "ssub", STATE.capturesErr ? ("Couldn't load the Captures store (ops/captures.md): " + STATE.capturesErr) : "Loading…"));
+      return;
+    }
+    var caps = STATE.captures.model.captures;
+    host.appendChild(el("div", "reach", "⤓ repo-canonical store — the board reads & writes ops/captures.md (merges the Drive Parking Lot + post-MVP Wishlist)"));
+    host.appendChild(el("p", "ssub", "A dumping ground by design. Anyone (you or Claude) adds a capture with free Notes; triage is optional. Promote opens the unified intake wizard pre-filled from the row — the recommended destination is editable, never forced. (Slice A: read + add + edit Notes are live; Promote ships in Slice B.)"));
+    var tb = el("div", "toolbar");
+    var addBtn = el("button", "primary", "+ Add capture"); tb.appendChild(addBtn);
+    tb.appendChild(el("span", "muted", caps.length + " captures · free capture now, optional triage later"));
+    host.appendChild(tb);
+    var form = el("div", "addcap hidden");
+    var tl = el("input"); tl.type = "text"; tl.placeholder = "Short capture title";
+    var nt = el("textarea"); nt.placeholder = "Dump the idea — detail optional";
+    form.appendChild(el("label", null, "Title")); form.appendChild(tl);
+    form.appendChild(el("label", null, "Notes")); form.appendChild(nt);
+    var fa = el("div", "acts");
+    var save = el("button", "primary", "Save capture"); var cancel = el("button", null, "Cancel");
+    fa.appendChild(save); fa.appendChild(cancel); form.appendChild(fa); host.appendChild(form);
+    addBtn.addEventListener("click", function () { form.classList.toggle("hidden"); if (!form.classList.contains("hidden")) tl.focus(); });
+    cancel.addEventListener("click", function () { form.classList.add("hidden"); tl.value = ""; nt.value = ""; });
+    save.addEventListener("click", function () { var t = tl.value.trim(); if (!t) { toast("Give the capture a title."); tl.focus(); return; } doCaptureAdd(t, nt.value.trim()); });
+    var tbl = el("table", "captbl");
+    var hr = el("tr");
+    [["Capture", "25%"], ["Notes (editable)", "33%"], ["Recommended", ""], ["Source", ""], ["", ""]].forEach(function (col) { var th = el("th", null, col[0]); if (col[1]) th.style.width = col[1]; hr.appendChild(th); });
+    tbl.appendChild(hr);
+    caps.forEach(function (c) { tbl.appendChild(captureRowEl(c)); });
+    host.appendChild(tbl);
+  }
+  function captureRowEl(c) {
+    var tr = el("tr");
+    var td0 = el("td"); td0.appendChild(el("div", "capid", c.id)); td0.appendChild(el("div", "capttl", c.title)); tr.appendChild(td0);
+    var td1 = el("td");
+    var notes = el("div", "cap-notes"); notes.setAttribute("contenteditable", "true"); notes.textContent = c.notes || ""; notes.setAttribute("data-orig", c.notes || "");
+    notes.addEventListener("blur", function () {
+      var v = notes.textContent.trim();
+      if (v === (notes.getAttribute("data-orig") || "").trim()) return;
+      doCaptureNotesWrite(c.id, v, notes);
+    });
+    td1.appendChild(notes); tr.appendChild(td1);
+    var td2 = el("td"); var rec = el("div", "cap-rec");
+    rec.appendChild(el("b", null, (c.recLevel === "top" ? "Top-level" : "Child") + (c.recType ? " " + c.recType : "")));
+    rec.appendChild(el("div", null, (c.recProject || "—") + (c.recParent && c.recParent !== "—" ? " · " + c.recParent : "")));
+    td2.appendChild(rec); tr.appendChild(td2);
+    var td3 = el("td"); td3.appendChild(el("span", "capsrc", c.source || "")); tr.appendChild(td3);
+    var td4 = el("td"); var pb = el("button", null, "Promote →");
+    pb.title = "Opens the unified intake wizard (Slice B)";
+    pb.addEventListener("click", function () { toast("Promote opens the unified intake wizard in Slice B (next session) — pre-filled from this row, destination editable."); });
+    td4.appendChild(pb); tr.appendChild(td4);
+    return tr;
+  }
+  // Edit one capture's Notes (Write Pattern 1: setCell + Last updated bump + cached blob SHA).
+  function doCaptureNotesWrite(id, value, notesEl) {
+    var f = STATE.captures; if (!f) { toast("Captures store not loaded."); return; }
+    var info = getToken(); if (!info || info.expired) { showSetup(); toast("Token missing/expired — reconnect, then re-edit."); return; }
+    var m2 = P.parse(f.model.raw);
+    if (!P.setCell(m2, id, "notes", value)) { toast("Could not locate the Notes cell for " + id); return; }
+    P.bumpLastUpdated(m2, today());
+    var newText = P.serialize(m2);
+    setStatus("writing " + id + " notes…");
+    ghPut(CAPTURES_PATH, info.token, newText, f.sha, "bucket-d: capture " + id + " edit notes").then(function (resp) {
+      f.model = P.parse(newText); f.sha = (resp && resp.content && resp.content.sha) || f.sha; delete etags[CAPTURES_PATH];
+      var shortSha = (resp && resp.commit && resp.commit.sha) ? resp.commit.sha.slice(0, 7) : "";
+      setStatus(""); if (notesEl) notesEl.setAttribute("data-orig", value);
+      toast("Committed " + (shortSha ? shortSha + " — " : "") + id + " notes updated");
+    }).catch(function (err) {
+      if (err.auth) { forgetToken(); setStatus("token rejected"); showSetup(); toast("Token rejected — reconnect and re-edit."); return; }
+      if (err.conflict) { setStatus("conflict — reloading"); toast(id + " NOT written — captures.md changed on the server. Reloading; please re-edit."); loadAll(); return; }
+      setStatus("write error"); toast("Notes write failed: " + err.message);
+    });
+  }
+  // Add a capture (insertCaptureRow + Last updated bump + cached blob SHA).
+  function doCaptureAdd(title, notes) {
+    var f = STATE.captures; if (!f) { toast("Captures store not loaded."); return; }
+    var info = getToken(); if (!info || info.expired) { showSetup(); toast("Token missing/expired — reconnect, then retry."); return; }
+    var m2 = P.parse(f.model.raw);
+    var id = P.nextCaptureId(m2);
+    var row = "| " + id + " | " + P.sanitizeCell(title) + " | " + P.sanitizeCell(notes) + " | added on board |  |  | Plexus | — | " + today() + " |";
+    if (!P.insertCaptureRow(m2, row)) { toast("Could not locate the Captures table."); return; }
+    P.bumpLastUpdated(m2, today());
+    var newText = P.serialize(m2);
+    setStatus("writing " + id + "…");
+    ghPut(CAPTURES_PATH, info.token, newText, f.sha, "bucket-d: capture add " + id + " " + P.sanitizeCell(title)).then(function (resp) {
+      f.model = P.parse(newText); f.sha = (resp && resp.content && resp.content.sha) || f.sha; delete etags[CAPTURES_PATH];
+      var shortSha = (resp && resp.commit && resp.commit.sha) ? resp.commit.sha.slice(0, 7) : "";
+      setStatus(""); toast("Added " + id + (shortSha ? " — " + shortSha : "")); buildSideNav();
+      if (ACTIVE_SURFACE === "captures") renderCaptures();
+    }).catch(function (err) {
+      if (err.auth) { forgetToken(); setStatus("token rejected"); showSetup(); toast("Token rejected — reconnect and retry."); return; }
+      if (err.conflict) { setStatus("conflict — reloading"); toast("Add NOT written — captures.md changed on the server. Reloading; please retry."); loadAll(); return; }
+      setStatus("write error"); toast("Add failed: " + err.message);
+    });
+  }
+
+  // ---- Pie in the Sky surface (read-only mirror of the Drive canonical) ----
+  function parsePie(text) {
+    var lines = String(text).split("\n"), themes = [], cur = null;
+    lines.forEach(function (ln) {
+      var hm = ln.match(/^###\s+(.*)$/); if (hm) { cur = { name: hm[1].trim(), rows: [] }; themes.push(cur); return; }
+      if (!cur || !/^\|/.test(ln)) return;
+      var cells = ln.split("|").slice(1, -1).map(function (s) { return s.trim(); });
+      if (cells.length < 3) return;
+      if (/^idea$/i.test(cells[0]) || /^[-:\s]+$/.test(cells[0])) return; // header / separator row
+      cur.rows.push({ idea: cells[0], notes: cells[1], status: cells[2], added: cells[3] || "" });
+    });
+    return themes.filter(function (t) { return t.rows.length; });
+  }
+  function renderPie() {
+    var host = $("surface-pie"); host.innerHTML = "";
+    host.appendChild(el("div", "crumb", "Lists · idea radar (class 2)"));
+    var hd = el("h2", "shd"); hd.appendChild(document.createTextNode("Pie in the Sky "));
+    hd.appendChild(el("span", "schip", "read-only mirror")); host.appendChild(hd);
+    host.appendChild(el("div", "reach", "⤓ Mirrored from Drive · Pie_in_the_Sky_Project_Ideas.md — new-project ideas, never deleted"));
+    host.appendChild(el("p", "ssub", "Kept SEPARATE from Captures on purpose: these are whole-new-project ideas, not work items. Promote runs the New Project Playbook go/no-go (the W-08 path), not Task creation."));
+    if (!STATE.pieRaw) { host.appendChild(el("p", "ssub", STATE.pieErr ? ("Couldn't load the Pie mirror (ops/pie_mirror.md): " + STATE.pieErr) : "Loading…")); return; }
+    var themes = parsePie(STATE.pieRaw);
+    if (!themes.length) { host.appendChild(el("p", "ssub", "No ideas found in the mirror.")); return; }
+    themes.forEach(function (t) {
+      host.appendChild(el("div", "theme-hd", t.name));
+      var grid = el("div", "ideagrid");
+      t.rows.forEach(function (r) {
+        var card = el("div", "ideacard");
+        card.appendChild(el("b", null, r.idea));
+        if (r.notes && r.notes !== "—") card.appendChild(el("div", "im", r.notes));
+        var row = el("div", "irow");
+        row.appendChild(el("span", "istat", r.status || "Idea"));
+        var pb = el("button", null, "Promote to project →");
+        pb.addEventListener("click", function () { toast("Runs the New Project Playbook go/no-go (stub this build)."); });
+        row.appendChild(pb); card.appendChild(row); grid.appendChild(card);
+      });
+      host.appendChild(grid);
+    });
+  }
+
+  // ---- Registers surface (read-only reference: EP_Register live, CB pointer) ----
+  function renderRegisters() {
+    var host = $("surface-registers"); host.innerHTML = "";
+    host.appendChild(el("div", "crumb", "Reference · allocator ledger (class 3)"));
+    var hd = el("h2", "shd"); hd.appendChild(document.createTextNode("Registers — CB / EP "));
+    hd.appendChild(el("span", "schip", "reference view")); host.appendChild(hd);
+    host.appendChild(el("div", "reach", "⤓ EP_Register is repo-side (read live); CB_Register is Drive-canonical (pointer only)"));
+    host.appendChild(el("p", "ssub", "Allocators, not backlogs. The Epics + Strategic Goals these number already render as board entities — this is the number ledger for cross-reference, read-only. Surfacing them as per-row work items would corrupt board meaning (function-class 3)."));
+    var box = el("div"); host.appendChild(box);
+    if (STATE.epRegRaw == null) {
+      box.appendChild(el("p", "ssub", "Loading EP_Register…"));
+      var info = getToken();
+      if (info && !info.expired) {
+        ghGet(EP_REGISTER_PATH, info.token).then(function (r) { STATE.epRegRaw = r.body; if (ACTIVE_SURFACE === "registers") renderRegisters(); })
+          .catch(function (e) { STATE.epRegRaw = ""; if (ACTIVE_SURFACE === "registers") renderRegisters(); });
+      } else { box.innerHTML = ""; box.appendChild(el("p", "ssub", "Connect a token to read EP_Register.")); }
+      return;
+    }
+    box.appendChild(el("div", "theme-hd", "EP_Register — portfolio-global Epic allocator (live, repo-side)"));
+    var rows = [], nextFree = "";
+    String(STATE.epRegRaw).split("\n").forEach(function (ln) {
+      var m = ln.match(/^\|\s*(EP-\d{3})\s*\|\s*([^|]*)\|\s*([^|]*)\|\s*([^|]*)\|/);
+      if (m) rows.push({ id: m[1], owner: m[2].trim(), title: m[3].trim(), date: m[4].trim() });
+      var nf = ln.match(/Next free number:\s*\**\s*(EP-\d{3})/i); if (nf) nextFree = nf[1];
+    });
+    if (rows.length) {
+      var tbl = el("table", "reftbl");
+      var hrow = el("tr"); ["EP", "Owner", "Title", "Allocated"].forEach(function (t) { hrow.appendChild(el("th", null, t)); }); tbl.appendChild(hrow);
+      rows.forEach(function (r) { var tr = el("tr"); tr.appendChild(el("td", "capid", r.id)); tr.appendChild(el("td", null, r.owner)); tr.appendChild(el("td", null, r.title)); tr.appendChild(el("td", null, r.date)); tbl.appendChild(tr); });
+      box.appendChild(tbl);
+      if (nextFree) box.appendChild(el("p", "cap-rec", "Next free: " + nextFree));
+    } else if (STATE.epRegRaw) { box.appendChild(el("p", "ssub", "Couldn't parse EP_Register rows.")); }
+    else { box.appendChild(el("p", "ssub", "EP_Register not loaded.")); }
+    var ln2 = el("div", "legend-note");
+    ln2.appendChild(el("h5", null, "CB_Register (Strategic Goals)"));
+    ln2.appendChild(el("p", "cap-rec", "Drive-canonical (C:\\Users\\TJgra\\My Drive\\Plexus\\CB_Register.md) — outside the app's GitHub reach. A repo mirror (like Pie) is the Slice-B follow-up if a live view is wanted."));
+    box.appendChild(ln2);
+  }
 
   // ---- boot ----
   function boot() {
