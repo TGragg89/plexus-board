@@ -32,7 +32,11 @@ const ok = (msg) => console.log("PASS  " + msg);
 // ---- (1) migration losslessness: criteria.join(" / ") === original freetext ----
 const LOSSLESS = [
   { file: "plexus_operations.md", id: "EP-001", n: 1, orig: "Phase 1 schema ratified and OP-001 unblocked." },
-  { file: "plexus_operations.md", id: "BT-001", n: 3, orig: "Pages-deployed board renders live Plexus + Laser work items; status / priority / intake writes land as minimal-diff commits that survive reload; round-trip byte-compare green on both ops files; MVP declared operational against ≥2 standardized projects (flipped 2026-06-11). Split-brain exit = remaining-four ops-file migration (OP-032)." },
+  // BT-001 dropped from the losslessness set on the 2026-06-15 BT-001 close-out
+  // (Decision_Log.md v2.18): its `; `-separated freetext AC was rewritten to a clean
+  // hand-authored 5-criterion set (all 🟩), so it is no longer a freetext-migrated item
+  // and the join()===original assertion no longer applies. Other migrated items below
+  // still exercise the migration-losslessness invariant.
   { file: "plexus_operations.md", id: "OP-034", n: 3, orig: "New work items identified and captured via the board. / Live board shows all new work items and real field data. / Bugs and missing features found are logged as work items." },
   { file: "plexus_operations.md", id: "OP-035", n: 5, orig: "Claude CI cards render on the live board with real field data. / Round-trip byte-compare green on the new ops file. / EP_Register rows allocated and bumped. / Drive pointer stub + both registries updated. / Master-Template change work is captured as board work items." },
   { file: "plexus_operations.md", id: "OP-036", n: 6, orig: "Clicking any listed work item opens its sidebar. / Sidebar look matches the current drawer. / Parent + child links replace the sidebar in place; never more than one open. / Click outside the sidebar (in-app) closes it; clicking outside Plexus leaves it open. / A Status edit from a child's sidebar lands as a commit and survives reload. / Mockup approved by Tim before rollout." },
@@ -55,11 +59,14 @@ for (const c of LOSSLESS) {
 }
 
 // ---- (2) box-click write: cycle one criterion, exactly 2 lines change, re-parse ----
+// Target retargeted BT-001 -> EP-001 on the 2026-06-15 close-out: BT-001/AC-1 is now 🟩
+// (close-out rewrite), so it can't exercise the 🟥→🟨 transition. EP-001/AC-1 is a stable
+// 🟥 schema-lock criterion that won't churn, so it's the durable target for this case.
 {
   const orig = readFileSync(join(DATA, "plexus_operations.md"), "utf8");
   const model = P.parse(orig);
-  const res = P.cycleCriterion(model, "BT-001", 1, NEW_DATE);
-  if (!res || res.from !== "red" || res.to !== "yellow") { fail(`cycleCriterion BT-001/AC-1 = ${JSON.stringify(res)}`); }
+  const res = P.cycleCriterion(model, "EP-001", 1, NEW_DATE);
+  if (!res || res.from !== "red" || res.to !== "yellow") { fail(`cycleCriterion EP-001/AC-1 = ${JSON.stringify(res)}`); }
   else {
     P.bumpLastUpdated(model, NEW_DATE);
     const a = orig.split("\n"), b = P.serialize(model).split("\n");
@@ -69,9 +76,9 @@ for (const c of LOSSLESS) {
     else if (!changed.some((i) => b[i].includes("AC-1") && b[i].includes("🟨") && b[i].includes(NEW_DATE))) fail(`AC write: bullet line missing 🟨/${NEW_DATE}`);
     else if (!changed.some((i) => /Last updated/.test(b[i]) && b[i].includes(NEW_DATE))) fail(`AC write: Last updated not bumped`);
     else {
-      const rec = P.parse(b.join("\n")).acDetail["BT-001"][0];
+      const rec = P.parse(b.join("\n")).acDetail["EP-001"][0];
       if (rec.state !== "yellow" || rec.updated !== NEW_DATE) fail(`AC write re-parse: state=${rec.state} updated=${rec.updated}`);
-      else ok(`box-click BT-001/AC-1 🟥→🟨: exactly 2 lines changed (bullet + Last updated), re-parses yellow @ ${NEW_DATE}`);
+      else ok(`box-click EP-001/AC-1 🟥→🟨: exactly 2 lines changed (bullet + Last updated), re-parses yellow @ ${NEW_DATE}`);
     }
   }
 }
