@@ -1019,12 +1019,32 @@
     { path: "ops/laser_cutting_operations.md", project: "Laser Cutting", tag: "Laser", color: "#e3603a", vocab: "emoji",
       shape: "Reference", owner: "Laser", root: "C:\\Users\\TJgra\\My Drive\\Laser Cutting" },
     { path: "ops/claude_ci_operations.md", project: "Claude CI", tag: "CCI", color: "#0969da", vocab: "word",
-      shape: "Backlog", owner: "Claude CI", root: "C:\\Users\\TJgra\\My Drive\\Claude Continuous Improvement\\Claude CI" }
+      shape: "Backlog", owner: "Claude CI", root: "C:\\Users\\TJgra\\My Drive\\Claude Continuous Improvement\\Claude CI" },
+    // OP-032 remaining-four migration (EP-013 "Portfolio board rollout", 2026-06-17): the four
+    // audited projects below moved repo-canonical into ops/ (split-brain exit). They predate the
+    // §A.6.1 hierarchy + Rider-1/2 schema, so they carry no top-level Epic/Bet table and render
+    // UNGROUPED (Uncategorized / ungrouped tray). Schema-uplift gaps (missing §A.6.1 table,
+    // Rider-1 Description/Acceptance/Links columns, Rider-2 Ready/In-Review tokens) are flagged as
+    // follow-on captures, NOT uplifted here (Decision_Log.md v2.21).
+    { path: "ops/lapdesk_operations.md", project: "Lapdesk", tag: "Lapdesk", color: "#2da44e", vocab: "emoji",
+      shape: "Mixed", owner: "Lapdesk", root: "C:\\Users\\TJgra\\My Drive\\Lapdesk" },
+    // 3D Printing — TOKEN-COLLISION GUARD (Decision_Log.md 2026-06-11 / Phase1 §0 rider + §A.3.2):
+    // this file binds 🟡 = In Progress in its printer_cfg calibration vocabulary (§2/§3), so it must
+    // NOT get the Rider-2 emoji vocab where 🟡 = Ready. It is assigned the scoped `emoji3d` vocab
+    // (no 🟡=Ready, no 👀=In Review token) — the engine never writes 🟡 here; calibration 🟡 cells
+    // stay byte-identical (they live in unparsed "#"-keyed rows, not parsed status cells).
+    { path: "ops/3d_printing_operations.md", project: "3D Printing", tag: "3D", color: "#bf3989", vocab: "emoji3d",
+      shape: "Reference", owner: "3D Printing", root: "C:\\Users\\TJgra\\My Drive\\3D Printing Maintenance & Upgrades" },
+    { path: "ops/home_network_operations.md", project: "Home Network", tag: "HomeNet", color: "#1b7c83", vocab: "emoji",
+      shape: "Backlog", owner: "Home Network", root: "C:\\Users\\TJgra\\My Drive\\Home Network" },
+    { path: "ops/understory_operations.md", project: "Landscaping", tag: "Landscape", color: "#9e6a03", vocab: "word",
+      shape: "Catalog", owner: "Landscaping", root: "C:\\Users\\TJgra\\My Drive\\Landscaping project" }
   ];
   var EP_REGISTER_PATH = "ops/EP_Register.md"; // portfolio-global Epic allocator (slice 3 intake)
   var CAPTURES_PATH = "ops/captures.md";       // OP-040 writable Captures store (class-1 lists)
   var PIE_PATH = "ops/pie_mirror.md";          // OP-040 read-only Pie-in-the-Sky mirror (class 2)
-  var PROJECT_COLORS = { "Plexus": "#8957e5", "Laser Cutting": "#e3603a", "Claude CI": "#0969da" };
+  var PROJECT_COLORS = { "Plexus": "#8957e5", "Laser Cutting": "#e3603a", "Claude CI": "#0969da",
+    "Lapdesk": "#2da44e", "3D Printing": "#bf3989", "Home Network": "#1b7c83", "Landscaping": "#9e6a03" };
   // Priority is plain text (P0..P3) in both pilot files' vocabularies — file-native,
   // no styling. Same write target set for every file (punch-list 2).
   var PRIOS = ["P0", "P1", "P2", "P3"];
@@ -1045,6 +1065,18 @@
     emoji: {
       order: ["Backlog", "Ready", "In Progress", "In Review", "Blocked", "Cancelled", "Done"],
       token: { "Backlog": "🔲", "Ready": "🟡", "In Progress": "🔄", "In Review": "👀", "Blocked": "🚩", "Cancelled": "❌", "Done": "✅" }
+    },
+    // emoji3d — 3D Printing ONLY (OP-032 / token-collision guard, Decision_Log.md 2026-06-11 +
+    // Phase1 §0 rider). Same Lite-Reference emoji set as `emoji` for the parsed work-item rows
+    // (🔲/🔄/🚩/❌/✅) but with NO Ready (🟡) and NO In Review (👀) token: 3d_printing_operations.md
+    // binds 🟡 = In Progress in its calibration vocabulary (§A.3.2), so the engine must never write
+    // 🟡 = Ready for this file. With no token, Ready / In Review render disabled in its drawer
+    // dropdown and refuse drops (canFlipTo + statusSelectEl both gate on token presence) — exactly
+    // the pre-Rider-2 behavior. If Ready/In-Review are ever needed here, assign a DIFFERENT Ready
+    // token rather than overloading 🟡. Calibration 🟡 cells are untouched (unparsed rows).
+    emoji3d: {
+      order: ["Backlog", "Ready", "In Progress", "In Review", "Blocked", "Cancelled", "Done"],
+      token: { "Backlog": "🔲", "In Progress": "🔄", "Blocked": "🚩", "Cancelled": "❌", "Done": "✅" }
     }
   };
   function today() { return new Date().toISOString().slice(0, 10); }
