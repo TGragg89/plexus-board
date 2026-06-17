@@ -597,6 +597,19 @@
         var partCol = colIndex(header, "participating");
         var prioCol2 = prioCol; // active-backlog tables put priority before status
 
+        // OP-032: name-priority title fallback. Legacy migrated ops files keep the
+        // card title in an unmapped column (Item / Action / Task) and have no Title
+        // column, so the old "Title || Decision" fallback rendered them blank. Pick
+        // the first present column among this ordered name list as the card title;
+        // whichever column wins also supplies the editable-cell range wiring below.
+        // Description / Status / Priority / Notes mapping is deliberately untouched.
+        var TITLE_FALLBACK = ["title", "item", "action", "task", "decision", "name", "summary"];
+        var titleSrcCol = -1;
+        for (var tfi = 0; tfi < TITLE_FALLBACK.length; tfi++) {
+          var _tc = colIndex(header, TITLE_FALLBACK[tfi]);
+          if (_tc >= 0) { titleSrcCol = _tc; break; }
+        }
+
         // parent ref from the sub-section header: "### Foo (parent: EP-001)"
         var parentId = "";
         if (curSub) { var _pm = curSub.match(/\(parent:\s*((?:EP|BT|ML)-\d{3})\)/); if (_pm) parentId = _pm[1]; }
@@ -635,7 +648,7 @@
             var kind = idm[1], id = idm[1] + "-" + idm[2];
             var rec = {
               id: id, kind: kind, section: curSection, group: curSub,
-              title: get(titleCol) || get(decCol),
+              title: get(titleSrcCol),
               statusRaw: statusCell ? statusCell.text : "",
               status: mapStatus(statusCell ? statusCell.text : ""),
               priority: normPrio(get(prioCol)),
@@ -646,10 +659,11 @@
               line: i2, statusRange: statusCell ? { start: statusCell.start, end: statusCell.end } : null,
               prioRange: prioCell ? { start: prioCell.start, end: prioCell.end } : null,
               // OP-039 — char ranges of the editable plain-text cells (null when the
-              // column is absent from this row's table). Title falls back to the
-              // Decision column for PD-style tables that have no Title header.
+              // column is absent from this row's table). Title edits target whichever
+              // column the OP-032 name-priority fallback selected (Title / Item /
+              // Action / Task / Decision / Name / Summary).
               cellRanges: {
-                title: range(titleCol >= 0 ? titleCol : decCol),
+                title: range(titleSrcCol),
                 description: range(descCol),
                 notes: range(noteCol),
                 cycle: range(cycleCol)
@@ -680,14 +694,14 @@
             // Laser active-backlog rows (A8/B3/C4) — treat as ungrouped work items
             model.ops.push({
               id: first, kind: "BACKLOG", section: curSection, group: curSub,
-              title: get(titleCol), statusRaw: statusCell ? statusCell.text : "",
+              title: get(titleSrcCol), statusRaw: statusCell ? statusCell.text : "",
               status: mapStatus(statusCell ? statusCell.text : ""),
               priority: normPrio(get(prioCol)), cycle: "", address: get(addrCol),
               blockedBy: "", notes: get(noteCol), source: "",
               parentId: parentId,
               line: i2, statusRange: statusCell ? { start: statusCell.start, end: statusCell.end } : null,
               prioRange: prioCell ? { start: prioCell.start, end: prioCell.end } : null,
-              cellRanges: { title: range(titleCol), description: range(descCol), notes: range(noteCol), cycle: range(cycleCol) }
+              cellRanges: { title: range(titleSrcCol), description: range(descCol), notes: range(noteCol), cycle: range(cycleCol) }
             });
           }
         }
