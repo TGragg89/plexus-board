@@ -1056,7 +1056,7 @@
   ];
   var EP_REGISTER_PATH = "ops/EP_Register.md"; // portfolio-global Epic allocator (slice 3 intake)
   var CAPTURES_PATH = "ops/captures.md";       // OP-040 writable Captures store (class-1 lists)
-  var PIE_PATH = "ops/pie_mirror.md";          // OP-040 read-only Pie-in-the-Sky mirror (class 2)
+  var PIE_PATH = "ops/pie.md";                 // OP-063 repo-canonical Pie-in-the-Sky store; surface read-only this session (board write = OP-064) (class 2)
   var PROJECT_COLORS = { "Plexus": "#8957e5", "Laser Cutting": "#e3603a", "Claude CI": "#0969da",
     "Lapdesk": "#2da44e", "3D Printing": "#bf3989", "Home Network": "#1b7c83", "Landscaping": "#9e6a03" };
   // Priority is plain text (P0..P3) in both pilot files' vocabularies — file-native,
@@ -2524,7 +2524,7 @@
 
   // ===================== OFF-BOARD-LIST SURFACES (OP-040 — left-nav) =====================
   // Left-nav surfaces beside the board: Captures (writable, class 1), Pie in the Sky
-  // (read-only mirror, class 2), Registers (reference, class 3). The board itself is
+  // (repo-canonical ops/pie.md, surface read-only until OP-064, class 2), Registers (reference, class 3). The board itself is
   // unchanged — it's just one surface now. Visual contract: BucketD_Mockup_OffBoardLists_v0.1.html.
   var ACTIVE_SURFACE = "board";
   var NAV_GROUPS = [
@@ -2672,7 +2672,7 @@
     });
   }
 
-  // ---- Pie in the Sky surface (read-only mirror of the Drive canonical) ----
+  // ---- Pie in the Sky surface (read-only render of the repo-canonical ops/pie.md; board write = OP-064) ----
   function parsePie(text) {
     var lines = String(text).split("\n"), themes = [], cur = null;
     lines.forEach(function (ln) {
@@ -2689,12 +2689,12 @@
     var host = $("surface-pie"); host.innerHTML = "";
     host.appendChild(el("div", "crumb", "Lists · idea radar (class 2)"));
     var hd = el("h2", "shd"); hd.appendChild(document.createTextNode("Pie in the Sky "));
-    hd.appendChild(el("span", "schip", "read-only mirror")); host.appendChild(hd);
-    host.appendChild(el("div", "reach", "⤓ Mirrored from Drive · Pie_in_the_Sky_Project_Ideas.md — new-project ideas, never deleted"));
+    hd.appendChild(el("span", "schip", "read-only")); host.appendChild(hd);
+    host.appendChild(el("div", "reach", "⤓ Repo-canonical · ops/pie.md — new-project ideas, never deleted"));
     host.appendChild(el("p", "ssub", "Kept SEPARATE from Captures on purpose: these are whole-new-project ideas, not work items. Promote runs the New Project Playbook go/no-go (the W-08 path), not Task creation."));
-    if (!STATE.pieRaw) { host.appendChild(el("p", "ssub", STATE.pieErr ? ("Couldn't load the Pie mirror (ops/pie_mirror.md): " + STATE.pieErr) : "Loading…")); return; }
+    if (!STATE.pieRaw) { host.appendChild(el("p", "ssub", STATE.pieErr ? ("Couldn't load the Pie store (ops/pie.md): " + STATE.pieErr) : "Loading…")); return; }
     var themes = parsePie(STATE.pieRaw);
-    if (!themes.length) { host.appendChild(el("p", "ssub", "No ideas found in the mirror.")); return; }
+    if (!themes.length) { host.appendChild(el("p", "ssub", "No ideas found in ops/pie.md.")); return; }
     themes.forEach(function (t) {
       host.appendChild(el("div", "theme-hd", t.name));
       var grid = el("div", "ideagrid");
