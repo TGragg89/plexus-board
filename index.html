@@ -311,7 +311,7 @@
   .surface .toolbar .muted { font-size: 12px; color: var(--ink-faint); }
   .addcap { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; margin-bottom: 14px; }
   .addcap label { display: block; font-size: 12px; color: var(--ink-dim); margin: 6px 0 3px; }
-  .addcap input, .addcap textarea { width: 100%; font: inherit; font-size: 13px; background: var(--bg); color: var(--ink); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; }
+  .addcap input, .addcap textarea, .addcap select { width: 100%; font: inherit; font-size: 13px; background: var(--bg); color: var(--ink); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; }
   .addcap textarea { min-height: 44px; resize: vertical; }
   .addcap .acts { margin-top: 10px; display: flex; gap: 8px; }
   /* Pie idea cards */
@@ -320,6 +320,9 @@
   .ideacard { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 9px 11px; }
   .ideacard b { font-size: 13px; }
   .ideacard .im { color: var(--ink-dim); font-size: 11.5px; margin: 4px 0 8px; line-height: 1.45; }
+  .ideacard .im[contenteditable] { border: 1px dashed var(--line); border-radius: 6px; padding: 4px 7px; min-height: 26px; outline: none; }
+  .ideacard .im[contenteditable]:focus { border-style: solid; border-color: var(--accent); background: #0c1117; }
+  .ideacard .im[contenteditable]:empty::before { content: "add a note…"; color: var(--ink-faint); }
   .ideacard .irow { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
   .ideacard .istat { font-size: 10.5px; color: var(--ink-faint); }
   /* Registers reference */
@@ -884,6 +887,70 @@
     return true;
   }
 
+  // ---- Pie store (OP-064) write primitives ----
+  // ops/pie.md is a set of "### <Theme>" sections, each a | Idea | Notes | Status | Added |
+  // table. The store has no IDs — rows are addressed by (theme, idea title). These apply the
+  // Write Pattern 1 discipline (locate → change the one span → leave the rest byte-for-byte)
+  // directly on raw text, since Pie is read as raw (not a parsed model). Each returns the new
+  // raw text, or null when the theme / row can't be located (caller degrades gracefully).
+
+  // Line index of a "### <theme>" header (exact match, trimmed). -1 if absent.
+  function pieThemeLine(lines, theme) {
+    for (var i = 0; i < lines.length; i++) {
+      var m = lines[i].raw.match(/^###\s+(.*)$/);
+      if (m && m[1].trim() === String(theme).trim()) return i;
+    }
+    return -1;
+  }
+  // Last table-row line within a theme section (before the next header / "---" / EOF).
+  function pieLastRowLine(lines, themeLineIdx) {
+    var last = -1;
+    for (var i = themeLineIdx + 1; i < lines.length; i++) {
+      var r = lines[i].raw;
+      if (/^#{1,3}\s/.test(r) || /^---\s*$/.test(r)) break;
+      if (/^\s*\|/.test(r)) last = i;
+    }
+    return last;
+  }
+  // Append one idea row to the chosen theme's table, byte-faithfully (single insert after
+  // that theme's last row). New rows seed Status=Idea, Added=dateStr; empty notes render as
+  // "—" to match the file convention.
+  function pieAddIdea(raw, theme, title, notes, dateStr) {
+    var lines = indexLines(raw);
+    var ti = pieThemeLine(lines, theme); if (ti < 0) return null;
+    var lr = pieLastRowLine(lines, ti); if (lr < 0) return null;
+    var row = "| " + sanitizeCell(title) + " | " + (sanitizeCell(notes) || "—") + " | Idea | " + dateStr + " |";
+    var endPos = lines[lr].end; // offset of the '\n' closing the last row
+    return raw.slice(0, endPos) + "\n" + row + raw.slice(endPos);
+  }
+  // Replace one idea's Notes cell (2nd column) byte-faithfully (single-space padding, the
+  // file's convention). Row located by (theme, idea title). Cleared notes render as "—".
+  function pieEditNotes(raw, theme, title, value) {
+    var lines = indexLines(raw);
+    var ti = pieThemeLine(lines, theme); if (ti < 0) return null;
+    for (var i = ti + 1; i < lines.length; i++) {
+      var r = lines[i].raw;
+      if (/^#{1,3}\s/.test(r) || /^---\s*$/.test(r)) break;
+      if (!/^\s*\|/.test(r)) continue;
+      var cells = parseRowCells(r, lines[i].start);
+      if (!cells || cells.length < 3) continue;
+      if (cells[0].text === String(title)) {
+        var rng = cells[1]; // Notes column
+        var out = sanitizeCell(value) || "—";
+        return raw.slice(0, rng.start) + " " + out + " " + raw.slice(rng.end);
+      }
+    }
+    return null;
+  }
+  // Bump the pie.md header "Last updated: YYYY-MM-DD" (non-bold form; date token only).
+  function pieBumpUpdated(raw, dateStr) {
+    var re = /(Last updated:\s*)(\d{4}-\d{2}-\d{2})/;
+    var m = re.exec(raw); if (!m) return raw;
+    var start = m.index + m[1].length, end = start + m[2].length;
+    if (raw.slice(start, end) === dateStr) return raw;
+    return raw.slice(0, start) + dateStr + raw.slice(end);
+  }
+
   // ---- Child-create (OP-040 Slice B — unified intake wizard, child path) ----
   // A capture promoted to a CHILD work item becomes a new OP row in its parent's
   // "(parent: <ID>)" sub-table. OP numbers are per-file (project-scoped, §0 Rider 3),
@@ -1010,7 +1077,7 @@
     return c;
   }
 
-  var api = { mapStatus: mapStatus, parse: parse, serialize: serialize, indexLines: indexLines, normPrio: normPrio, findRecord: findRecord, setStatus: setStatus, setPriority: setPriority, setCell: setCell, sanitizeCell: sanitizeCell, rollupStatus: rollupStatus, bumpLastUpdated: bumpLastUpdated, insertTopLevelRow: insertTopLevelRow, nextLocalId: nextLocalId, nextChildId: nextChildId, insertChildRow: insertChildRow, nextCaptureId: nextCaptureId, insertCaptureRow: insertCaptureRow, parseAcDetail: parseAcDetail, cycleCriterion: cycleCriterion, acCounts: acCounts, AC_STATE: AC_STATE, AC_EMOJI: AC_EMOJI, AC_NEXT: AC_NEXT, AC_LABEL: AC_LABEL };
+  var api = { mapStatus: mapStatus, parse: parse, serialize: serialize, indexLines: indexLines, normPrio: normPrio, findRecord: findRecord, setStatus: setStatus, setPriority: setPriority, setCell: setCell, sanitizeCell: sanitizeCell, rollupStatus: rollupStatus, bumpLastUpdated: bumpLastUpdated, insertTopLevelRow: insertTopLevelRow, nextLocalId: nextLocalId, nextChildId: nextChildId, insertChildRow: insertChildRow, nextCaptureId: nextCaptureId, insertCaptureRow: insertCaptureRow, pieAddIdea: pieAddIdea, pieEditNotes: pieEditNotes, pieBumpUpdated: pieBumpUpdated, parseAcDetail: parseAcDetail, cycleCriterion: cycleCriterion, acCounts: acCounts, AC_STATE: AC_STATE, AC_EMOJI: AC_EMOJI, AC_NEXT: AC_NEXT, AC_LABEL: AC_LABEL };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   root.Plexus = api;
 })(typeof globalThis !== "undefined" ? globalThis : this);
@@ -1205,7 +1272,7 @@
       if (!r.notModified) { STATE.captures = { model: P.parse(r.body), sha: r.sha }; STATE.capturesErr = null; }
     }).catch(function (e) { if (e.auth) throw e; STATE.capturesErr = e.message; }));
     loads.push(ghGet(PIE_PATH, token).then(function (r) {
-      if (!r.notModified) { STATE.pieRaw = r.body; STATE.pieErr = null; }
+      if (!r.notModified) { STATE.pie = { raw: r.body, sha: r.sha }; STATE.pieErr = null; }
     }).catch(function (e) { if (e.auth) throw e; STATE.pieErr = e.message; }));
     Promise.all(loads).then(function () {
       STATE.lastLoaded = Date.now();
@@ -2529,7 +2596,7 @@
   var ACTIVE_SURFACE = "board";
   var NAV_GROUPS = [
     { name: "Work", isNew: false, items: [{ id: "board", label: "Portfolio board", ct: "work" }] },
-    { name: "Lists", isNew: true, items: [{ id: "captures", label: "Captures", ct: "writable" }, { id: "pie", label: "Pie in the Sky", ct: "ideas" }] },
+    { name: "Lists", isNew: true, items: [{ id: "lists", label: "Captures & Pie", ct: "writable" }] }, // OP-064 — one entry, two stores (replaces the separate Captures / Pie entries)
     { name: "Reference", isNew: false, items: [{ id: "registers", label: "Registers (CB / EP)", ct: "ledger" }] }
   ];
   function surfaceHost(id) { return $(id === "board" ? "surface-board" : "surface-" + id); }
@@ -2557,14 +2624,16 @@
   function showSurface(name) {
     ACTIVE_SURFACE = name;
     $("app").className = "surf-" + name; // CSS hides .board-only controls off-board
+    // OP-064 — the merged "lists" surface shows the Captures AND Pie hosts together
+    // (Stacked: Captures on top, Pie below), each rendered into its own <section>.
+    var visible = { board: name === "board", captures: name === "lists", pie: name === "lists", registers: name === "registers" };
     ["board", "captures", "pie", "registers"].forEach(function (s) {
-      var host = surfaceHost(s); if (host) host.classList.toggle("hidden", s !== name);
+      var host = surfaceHost(s); if (host) host.classList.toggle("hidden", !visible[s]);
     });
     var nav = $("sidenav");
     if (nav) Array.prototype.forEach.call(nav.querySelectorAll("a"), function (a) { a.classList.toggle("on", a.getAttribute("data-surf") === name); });
     if (name === "board") render();
-    else if (name === "captures") renderCaptures();
-    else if (name === "pie") renderPie();
+    else if (name === "lists") { renderCaptures(); renderPie(); }
     else if (name === "registers") renderRegisters();
   }
 
@@ -2664,7 +2733,7 @@
       f.model = P.parse(newText); f.sha = (resp && resp.content && resp.content.sha) || f.sha; delete etags[CAPTURES_PATH];
       var shortSha = (resp && resp.commit && resp.commit.sha) ? resp.commit.sha.slice(0, 7) : "";
       setStatus(""); toast("Added " + id + (shortSha ? " — " + shortSha : "")); buildSideNav();
-      if (ACTIVE_SURFACE === "captures") renderCaptures();
+      if (ACTIVE_SURFACE === "lists") renderCaptures();
     }).catch(function (err) {
       if (err.auth) { forgetToken(); setStatus("token rejected"); showSetup(); toast("Token rejected — reconnect and retry."); return; }
       if (err.conflict) { setStatus("conflict — reloading"); toast("Add NOT written — captures.md changed on the server. Reloading; please retry."); loadAll(); return; }
@@ -2672,7 +2741,47 @@
     });
   }
 
-  // ---- Pie in the Sky surface (read-only render of the repo-canonical ops/pie.md; board write = OP-064) ----
+  // Edit one Pie idea's Notes (Write Pattern 1 applied to the un-modeled Pie store; pie.md
+  // has its own cached blob SHA, written separately from captures.md).
+  function doPieNotesWrite(theme, title, value, notesEl) {
+    var f = STATE.pie; if (!f) { toast("Pie store not loaded."); return; }
+    var info = getToken(); if (!info || info.expired) { showSetup(); toast("Token missing/expired — reconnect, then re-edit."); return; }
+    var text = P.pieEditNotes(f.raw, theme, title, value);
+    if (text == null) { toast("Could not locate the idea row for “" + title + "”."); return; }
+    text = P.pieBumpUpdated(text, today());
+    setStatus("writing pie note…");
+    ghPut(PIE_PATH, info.token, text, f.sha, "bucket-d: pie-editnote " + P.sanitizeCell(title)).then(function (resp) {
+      STATE.pie = { raw: text, sha: (resp && resp.content && resp.content.sha) || f.sha }; delete etags[PIE_PATH];
+      var shortSha = (resp && resp.commit && resp.commit.sha) ? resp.commit.sha.slice(0, 7) : "";
+      setStatus(""); if (notesEl) notesEl.setAttribute("data-orig", value);
+      toast("Committed " + (shortSha ? shortSha + " — " : "") + "Pie note updated");
+    }).catch(function (err) {
+      if (err.auth) { forgetToken(); setStatus("token rejected"); showSetup(); toast("Token rejected — reconnect and re-edit."); return; }
+      if (err.conflict) { setStatus("conflict — reloading"); toast("NOT written — pie.md changed on the server. Reloading; please re-edit."); loadAll(); return; }
+      setStatus("write error"); toast("Pie note write failed: " + err.message);
+    });
+  }
+  // Add a Pie idea (append one row to the chosen theme + Last updated bump; cached pie.md SHA).
+  function doPieAdd(theme, title, notes) {
+    var f = STATE.pie; if (!f) { toast("Pie store not loaded."); return; }
+    var info = getToken(); if (!info || info.expired) { showSetup(); toast("Token missing/expired — reconnect, then retry."); return; }
+    var text = P.pieAddIdea(f.raw, theme, title, notes, today());
+    if (text == null) { toast("Could not locate the “" + theme + "” theme table."); return; }
+    text = P.pieBumpUpdated(text, today());
+    setStatus("writing pie idea…");
+    ghPut(PIE_PATH, info.token, text, f.sha, "bucket-d: pie-add " + P.sanitizeCell(title)).then(function (resp) {
+      STATE.pie = { raw: text, sha: (resp && resp.content && resp.content.sha) || f.sha }; delete etags[PIE_PATH];
+      var shortSha = (resp && resp.commit && resp.commit.sha) ? resp.commit.sha.slice(0, 7) : "";
+      setStatus(""); toast("Added idea" + (shortSha ? " — " + shortSha : ""));
+      if (ACTIVE_SURFACE === "lists") renderPie();
+    }).catch(function (err) {
+      if (err.auth) { forgetToken(); setStatus("token rejected"); showSetup(); toast("Token rejected — reconnect and retry."); return; }
+      if (err.conflict) { setStatus("conflict — reloading"); toast("Add NOT written — pie.md changed on the server. Reloading; please retry."); loadAll(); return; }
+      setStatus("write error"); toast("Pie add failed: " + err.message);
+    });
+  }
+
+  // ---- Pie in the Sky surface (writable: read + Add idea + edit Notes — OP-064; no delete) ----
   function parsePie(text) {
     var lines = String(text).split("\n"), themes = [], cur = null;
     lines.forEach(function (ln) {
@@ -2689,19 +2798,48 @@
     var host = $("surface-pie"); host.innerHTML = "";
     host.appendChild(el("div", "crumb", "Lists · idea radar (class 2)"));
     var hd = el("h2", "shd"); hd.appendChild(document.createTextNode("Pie in the Sky "));
-    hd.appendChild(el("span", "schip", "read-only")); host.appendChild(hd);
-    host.appendChild(el("div", "reach", "⤓ Repo-canonical · ops/pie.md — new-project ideas, never deleted"));
-    host.appendChild(el("p", "ssub", "Kept SEPARATE from Captures on purpose: these are whole-new-project ideas, not work items. Promote runs the New Project Playbook go/no-go (the W-08 path), not Task creation."));
-    if (!STATE.pieRaw) { host.appendChild(el("p", "ssub", STATE.pieErr ? ("Couldn't load the Pie store (ops/pie.md): " + STATE.pieErr) : "Loading…")); return; }
-    var themes = parsePie(STATE.pieRaw);
+    hd.appendChild(el("span", "schip teal", "writable")); hd.appendChild(el("span", "schip accent", "add idea · edit Notes")); host.appendChild(hd);
+    host.appendChild(el("div", "reach", "⤓ repo-canonical store — the board reads & writes ops/pie.md (new-project ideas, never deleted)"));
+    host.appendChild(el("p", "ssub", "Kept SEPARATE from Captures on purpose: these are whole-new-project ideas, not work items. Promote runs the New Project Playbook go/no-go (the W-08 path), not Task creation. OP-064 adds Add idea + edit idea Notes — no delete (never-delete radar)."));
+    if (!STATE.pie) { host.appendChild(el("p", "ssub", STATE.pieErr ? ("Couldn't load the Pie store (ops/pie.md): " + STATE.pieErr) : "Loading…")); return; }
+    var themes = parsePie(STATE.pie.raw);
     if (!themes.length) { host.appendChild(el("p", "ssub", "No ideas found in ops/pie.md.")); return; }
+    // Add-idea toolbar + form (parity-minimum write path).
+    var tb = el("div", "toolbar");
+    var addBtn = el("button", "primary", "+ Add idea"); tb.appendChild(addBtn);
+    tb.appendChild(el("span", "muted", "title + theme + optional note — seeds Status=Idea, Added=today"));
+    host.appendChild(tb);
+    var form = el("div", "addcap hidden");
+    var tl = el("input"); tl.type = "text"; tl.placeholder = "Super-high-level idea title";
+    var thmSel = el("select"); themes.forEach(function (t) { var o = el("option", null, t.name); o.value = t.name; thmSel.appendChild(o); });
+    var nt = el("textarea"); nt.placeholder = "Optional one-liner — no commitment implied";
+    form.appendChild(el("label", null, "Idea")); form.appendChild(tl);
+    form.appendChild(el("label", null, "Theme")); form.appendChild(thmSel);
+    form.appendChild(el("label", null, "Notes")); form.appendChild(nt);
+    var fa = el("div", "acts");
+    var save = el("button", "primary", "Save idea"); var cancel = el("button", null, "Cancel");
+    fa.appendChild(save); fa.appendChild(cancel); form.appendChild(fa); host.appendChild(form);
+    addBtn.addEventListener("click", function () { form.classList.toggle("hidden"); if (!form.classList.contains("hidden")) tl.focus(); });
+    cancel.addEventListener("click", function () { form.classList.add("hidden"); tl.value = ""; nt.value = ""; });
+    save.addEventListener("click", function () { var t = tl.value.trim(); if (!t) { toast("Give the idea a title."); tl.focus(); return; } doPieAdd(thmSel.value, t, nt.value.trim()); });
     themes.forEach(function (t) {
       host.appendChild(el("div", "theme-hd", t.name));
       var grid = el("div", "ideagrid");
       t.rows.forEach(function (r) {
         var card = el("div", "ideacard");
         card.appendChild(el("b", null, r.idea));
-        if (r.notes && r.notes !== "—") card.appendChild(el("div", "im", r.notes));
+        var notes = el("div", "im"); notes.setAttribute("contenteditable", "true");
+        notes.textContent = (r.notes && r.notes !== "—") ? r.notes : "";
+        notes.setAttribute("data-orig", notes.textContent);
+        notes.title = "Edit this idea's Notes — saves to ops/pie.md (Write Pattern 1)";
+        (function (theme, idea, notesEl) {
+          notesEl.addEventListener("blur", function () {
+            var v = notesEl.textContent.trim();
+            if (v === (notesEl.getAttribute("data-orig") || "").trim()) return;
+            doPieNotesWrite(theme, idea, v, notesEl);
+          });
+        })(t.name, r.idea, notes);
+        card.appendChild(notes);
         var row = el("div", "irow");
         row.appendChild(el("span", "istat", r.status || "Idea"));
         var pb = el("button", null, "Promote to project →");
