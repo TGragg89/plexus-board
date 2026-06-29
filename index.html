@@ -288,6 +288,11 @@
   #sidenav a.on .ct { color: #cfe2ff; }
   .board { flex: 1; } /* the board is now one surface inside #appmain */
   .surface { flex: 1; overflow: auto; padding: 18px 22px 44px; }
+  /* OP-064 layout fix (Decision_Log v2.38) — Captures + Pie STACK in ONE shared vertical
+     scroll: the wrapper is the single flex child #appmain sees; the two inner sections
+     stop being flex:1 row-siblings (which split the pane 50/50) and flow top-to-bottom. */
+  #surface-lists { flex: 1; overflow: auto; display: flex; flex-direction: column; min-height: 0; }
+  #surface-lists .surface.listsec { flex: none; overflow: visible; }
   .surface .crumb { font-size: 11px; color: var(--ink-faint); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 4px; }
   .surface h2.shd { font-size: 17px; font-weight: 700; margin: 0 0 4px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
   .surface .ssub { color: var(--ink-dim); max-width: 770px; margin: 0 0 14px; font-size: 13px; line-height: 1.55; }
@@ -420,8 +425,12 @@
     </details>
   </div>
   <!-- OP-040 off-board-list surfaces (left-nav) -->
-  <section class="surface hidden" id="surface-captures"></section>
-  <section class="surface hidden" id="surface-pie"></section>
+  <!-- OP-064 layout fix (Decision_Log v2.38): Captures + Pie share ONE vertical scroll
+       (stacked, one page) — the wrapper is the single flex child of #appmain. -->
+  <div class="surface-lists hidden" id="surface-lists">
+    <section class="surface listsec hidden" id="surface-captures"></section>
+    <section class="surface listsec hidden" id="surface-pie"></section>
+  </div>
   <section class="surface hidden" id="surface-registers"></section>
   </div>
 </div>
@@ -2630,6 +2639,11 @@
     ["board", "captures", "pie", "registers"].forEach(function (s) {
       var host = surfaceHost(s); if (host) host.classList.toggle("hidden", !visible[s]);
     });
+    // OP-064 layout fix (Decision_Log v2.38): the Captures+Pie wrapper is the single flex
+    // child of #appmain on the "lists" surface — show it only then so its flex:1 never
+    // claims pane width on the board/registers surfaces (which would squeeze the board).
+    var listsWrap = $("surface-lists");
+    if (listsWrap) listsWrap.classList.toggle("hidden", name !== "lists");
     var nav = $("sidenav");
     if (nav) Array.prototype.forEach.call(nav.querySelectorAll("a"), function (a) { a.classList.toggle("on", a.getAttribute("data-surf") === name); });
     if (name === "board") render();
