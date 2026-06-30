@@ -9,6 +9,9 @@
 //      "edit Notes" write path (Write Pattern 1), identical discipline to the ops files.
 //   3. insertCaptureRow + nextCaptureId append ONE new row (the "Add capture" path),
 //      leaving every other byte identical, and the new row re-parses correctly.
+//   4. Never-reuse (OP-065): with the "**Next CAP:**" high-water mark seeded, deleting the
+//      highest CAP row does NOT regress nextCaptureId (the CAP-044 recycle repro), and the
+//      Add-capture batch bumps the high-water mark by exactly one in the same commit.
 
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -160,5 +163,66 @@ else {
   }
 }
 
-console.log(failed ? `\n${failed} captures case(s) FAILED` : `\nAll captures-store cases passed (parse + hints + minimal-diff edit + single-row add + Promote child-create + promote-annotate)`);
+// --- 6. Never-reuse (OP-065): deleting the highest CAP row must NOT regress nextCaptureId ---
+// The CAP-044 repro. With the high-water mark seeded in the "**Next CAP:**" header, dropping
+// the live-max row (a delete) leaves nextCaptureId at max-ever+1 — the retired id is never
+// recycled. Without the HWM floor, live-max regresses and the deleted id is handed out again.
+{
+  const model6 = P.parse(orig);
+  if (!model6.captureHWM) fail("never-reuse: model.captureHWM not parsed from the **Next CAP:** header (seed missing?)");
+  else {
+    const before = P.nextCaptureId(model6); // max(HWM, live-max)+1, before any delete
+    const topIdx = model6.captures.reduce(
+      (bi, c, i, a) => (parseInt(c.id.slice(4), 10) > parseInt(a[bi].id.slice(4), 10) ? i : bi), 0);
+    const dropped = model6.captures[topIdx].id;
+    model6.captures.splice(topIdx, 1); // simulate deleting the highest-numbered capture
+    const after = P.nextCaptureId(model6);
+    if (after !== before) fail(`never-reuse: deleting ${dropped} regressed nextCaptureId ${before} -> ${after} (id would be RECYCLED — CAP-044)`);
+    else ok(`never-reuse (CAP-044 repro): deleting top row ${dropped} keeps nextCaptureId = ${after} (max-ever+1; HWM floor holds)`);
+  }
+}
+
+// --- 7. Add capture bumps **Next CAP:** by exactly one, same commit, byte-faithful (OP-065) ---
+// Replicate doCaptureAdd's core edit batch (insertCaptureRow + bumpLastUpdated + bumpCaptureHWM
+// → serialize) and assert: the high-water mark advances by exactly one to the just-allocated id,
+// and the ONLY changes vs the original are {new row, Last updated, Next CAP} — every other byte
+// identical, and all three ride one serialization (one commit).
+{
+  const model7 = P.parse(orig);
+  const id = P.nextCaptureId(model7);
+  const hwmBefore = model7.captureHWM;
+  const row = `| ${id} | HWM-bump probe | n/a | added on board | child | Task | Plexus | — | ${NEW_DATE} |`;
+  if (!P.insertCaptureRow(model7, row)) fail("hwm-bump: insertCaptureRow returned false");
+  else {
+    P.bumpLastUpdated(model7, NEW_DATE);
+    if (!P.bumpCaptureHWM(model7, id)) fail("hwm-bump: bumpCaptureHWM returned false");
+    else {
+      const out = P.serialize(model7);
+      const a = orig.split("\n"), b = out.split("\n");
+      if (b.length !== a.length + 1) fail(`hwm-bump: expected +1 line, got ${b.length - a.length}`);
+      else {
+        const reparsed = P.parse(out);
+        const expHwm = hwmBefore + 1;
+        const expNext = "CAP-" + String(hwmBefore + 2).padStart(3, "0");
+        if (reparsed.captureHWM !== expHwm) fail(`hwm-bump: captureHWM ${hwmBefore} -> ${reparsed.captureHWM}, expected ${expHwm}`);
+        else if (P.nextCaptureId(reparsed) !== expNext) fail(`hwm-bump: post-add nextCaptureId not advanced by one (got ${P.nextCaptureId(reparsed)}, expected ${expNext})`);
+        else {
+          // strip the single inserted row, then the remaining lines must differ from the
+          // original at exactly the two in-place header bumps (Last updated, Next CAP).
+          const rowLineIdx = b.findIndex((l) => l.includes(id) && l.includes("HWM-bump probe"));
+          const bMinusRow = b.slice(0, rowLineIdx).concat(b.slice(rowLineIdx + 1));
+          const changed = [];
+          for (let i = 0; i < a.length; i++) if (a[i] !== bMinusRow[i]) changed.push(i);
+          const onlyHeaderBumps = changed.length === 2
+            && changed.some((i) => /Last updated/.test(bMinusRow[i]))
+            && changed.some((i) => /Next CAP/.test(bMinusRow[i]));
+          if (!onlyHeaderBumps) fail(`hwm-bump: in-place changes beyond {Last updated, Next CAP} (changed lines: ${changed.map((i) => i + 1).join(", ")})`);
+          else ok(`add capture ${id}: **Next CAP:** CAP-${String(hwmBefore).padStart(3, "0")} -> ${id} bumped by one in the SAME commit (new row + Last updated + Next CAP only; every other byte identical)`);
+        }
+      }
+    }
+  }
+}
+
+console.log(failed ? `\n${failed} captures case(s) FAILED` : `\nAll captures-store cases passed (parse + hints + minimal-diff edit + single-row add + Promote child-create + promote-annotate + never-reuse HWM + same-commit HWM bump)`);
 process.exit(failed ? 1 : 0);
