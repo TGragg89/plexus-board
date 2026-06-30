@@ -569,6 +569,13 @@
       if (m) model.preamble[m[1].trim().toLowerCase()] = m[2].trim();
     }
 
+    // OP-065: Captures-store high-water mark — the "**Next CAP:** CAP-NNN" preamble field.
+    // It is the never-reuse floor for nextCaptureId (so a deleted CAP id is never handed
+    // out again). Absent / unparsable → 0, in which case live-max alone governs.
+    model.captureHWM = 0;
+    var _hwm = model.preamble["next cap"];
+    if (_hwm) { var _hm = String(_hwm).match(/CAP-(\d+)/); if (_hm) model.captureHWM = parseInt(_hm[1], 10); }
+
     // --- walk sections (## N. ...) and sub-sections (### ...) ---
     var curSection = null, curSub = null, i, line, raw;
     var i2;
@@ -873,14 +880,30 @@
   // Editing a capture's Notes reuses setCell (Write Pattern 1); adding a capture appends
   // one row (the same byte-faithful single-insert discipline as insertTopLevelRow).
 
-  // Next free CAP-NNN (3-digit zero-padded). Scans the captures pool; never reuses.
+  // Next free CAP-NNN (3-digit zero-padded). Never reuses: floors against the
+  // high-water mark (model.captureHWM, from the "**Next CAP:**" header) so a retired id is
+  // never handed out again, AND keeps live-max as a second floor so a stale / missing /
+  // hand-edited header can never produce a collision. Monotonic always (OP-065).
   function nextCaptureId(model) {
-    var max = 0;
+    var max = model.captureHWM || 0;                       // never-reuse floor (max-ever)
     (model.captures || []).forEach(function (r) {
-      var n = parseInt(String(r.id).slice(4), 10); if (n > max) max = n;
+      var n = parseInt(String(r.id).slice(4), 10); if (n > max) max = n; // live-max floor
     });
     var s = String(max + 1); while (s.length < 3) s = "0" + s;
     return "CAP-" + s;
+  }
+  // OP-065: bump the "**Next CAP:** CAP-NNN" header high-water mark to the just-allocated id,
+  // byte-faithfully (single span, id token only). Mirrors bumpLastUpdated. Called inside
+  // doCaptureAdd in the SAME edit batch as insertCaptureRow + bumpLastUpdated, so one commit
+  // carries {new row, Last updated, Next CAP}; archive/delete paths never call it (no alloc).
+  function bumpCaptureHWM(model, newId) {
+    var re = /(\*\*Next CAP:\*\*\s*)(CAP-\d+)/;
+    var m = re.exec(model.raw);
+    if (!m) { model.warnings.push("Next CAP line not found"); return false; }
+    var start = m.index + m[1].length, end = start + m[2].length;
+    if (model.raw.slice(start, end) === newId) return true; // already at newId: no-op edit
+    model.edits.push({ start: start, end: end, value: newId });
+    return true;
   }
   // Append one row to the Captures table, byte-faithfully (single targeted insert at the
   // end of the last CAP row's line). rowText = full pipe-delimited row, no trailing newline.
@@ -1086,7 +1109,7 @@
     return c;
   }
 
-  var api = { mapStatus: mapStatus, parse: parse, serialize: serialize, indexLines: indexLines, normPrio: normPrio, findRecord: findRecord, setStatus: setStatus, setPriority: setPriority, setCell: setCell, sanitizeCell: sanitizeCell, rollupStatus: rollupStatus, bumpLastUpdated: bumpLastUpdated, insertTopLevelRow: insertTopLevelRow, nextLocalId: nextLocalId, nextChildId: nextChildId, insertChildRow: insertChildRow, nextCaptureId: nextCaptureId, insertCaptureRow: insertCaptureRow, pieAddIdea: pieAddIdea, pieEditNotes: pieEditNotes, pieBumpUpdated: pieBumpUpdated, parseAcDetail: parseAcDetail, cycleCriterion: cycleCriterion, acCounts: acCounts, AC_STATE: AC_STATE, AC_EMOJI: AC_EMOJI, AC_NEXT: AC_NEXT, AC_LABEL: AC_LABEL };
+  var api = { mapStatus: mapStatus, parse: parse, serialize: serialize, indexLines: indexLines, normPrio: normPrio, findRecord: findRecord, setStatus: setStatus, setPriority: setPriority, setCell: setCell, sanitizeCell: sanitizeCell, rollupStatus: rollupStatus, bumpLastUpdated: bumpLastUpdated, insertTopLevelRow: insertTopLevelRow, nextLocalId: nextLocalId, nextChildId: nextChildId, insertChildRow: insertChildRow, nextCaptureId: nextCaptureId, bumpCaptureHWM: bumpCaptureHWM, insertCaptureRow: insertCaptureRow, pieAddIdea: pieAddIdea, pieEditNotes: pieEditNotes, pieBumpUpdated: pieBumpUpdated, parseAcDetail: parseAcDetail, cycleCriterion: cycleCriterion, acCounts: acCounts, AC_STATE: AC_STATE, AC_EMOJI: AC_EMOJI, AC_NEXT: AC_NEXT, AC_LABEL: AC_LABEL };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   root.Plexus = api;
 })(typeof globalThis !== "undefined" ? globalThis : this);
@@ -2741,6 +2764,7 @@
     var row = "| " + id + " | " + P.sanitizeCell(title) + " | " + P.sanitizeCell(notes) + " | added on board |  |  | Plexus | — | " + today() + " |";
     if (!P.insertCaptureRow(m2, row)) { toast("Could not locate the Captures table."); return; }
     P.bumpLastUpdated(m2, today());
+    P.bumpCaptureHWM(m2, id);   // OP-065 never-reuse: advance the high-water mark in the same commit
     var newText = P.serialize(m2);
     setStatus("writing " + id + "…");
     ghPut(CAPTURES_PATH, info.token, newText, f.sha, "bucket-d: capture add " + id + " " + P.sanitizeCell(title)).then(function (resp) {
