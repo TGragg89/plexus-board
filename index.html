@@ -1066,10 +1066,10 @@
       var hm = r.match(/^####\s+((?:EP|BT|ML|OP|PD|CB|R)-\d{3})\s*$/);
       if (hm) { curId = hm[1]; list = []; map[curId] = list; continue; }
       if (!curId) continue;
-      var cm = r.match(/^(\s*-\s+)(🟥|🟨|🟩)\s+AC-(\d+)\s+([\s\S]*?)\s*_\(updated\s+(\d{4}-\d{2}-\d{2})\)_\s*$/);
+      var cm = r.match(/^(\s*-\s+)(🟥|🟨|🟩)\s+AC-(\d+)\s+([\s\S]*?)\s*_?\(updated\s+(\d{4}-\d{2}-\d{2})\)_\s*$/);
       if (cm) {
         var emojiStart = L.start + cm[1].length, emojiEnd = emojiStart + cm[2].length;
-        var dm = /_\(updated\s+(\d{4}-\d{2}-\d{2})\)_/.exec(r);
+        var dm = /_?\(updated\s+(\d{4}-\d{2}-\d{2})\)_/.exec(r);
         var dateStart = L.start + dm.index + dm[0].indexOf(dm[1]), dateEnd = dateStart + dm[1].length;
         list.push({ index: parseInt(cm[3], 10), state: AC_STATE[cm[2]] || "red", text: cm[4],
           updated: cm[5], emojiStart: emojiStart, emojiEnd: emojiEnd,

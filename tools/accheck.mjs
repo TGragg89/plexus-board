@@ -24,7 +24,7 @@ new Function("module", "globalThis", m[1])(sandbox.module, sandbox.globalThis);
 const P = sandbox.module.exports.parse ? sandbox.module.exports : sandbox.globalThis.Plexus;
 
 const DATA = join(root, "..", "plexus-bucket-d", "ops");
-const NEW_DATE = "2026-06-30"; // must differ from either file's current Last updated so the bump is a real edit
+const NEW_DATE = "2026-07-01"; // must differ from either file's current Last updated so the bump is a real edit (advanced past plexus_operations.md's 2026-06-30 — OP-075)
 let failed = 0;
 const fail = (msg) => { failed++; console.log("FAIL  " + msg); };
 const ok = (msg) => console.log("PASS  " + msg);
@@ -108,5 +108,41 @@ for (const c of LOSSLESS) {
   else ok("typed notes parse: How it's met + Links (done) and Proposed solution (in-progress) extracted");
 }
 
-console.log(failed ? `\n${failed} AC case(s) FAILED` : `\nAll AC-checklist cases passed (lossless migration + minimal-diff box-click + cycle + note parsing)`);
+// ---- (5) writer↔parser: every emitted AC bullet line parses (no silent drops) ----
+// Closes the gap that let a writer format the engine silently dropped pass offline
+// (OP-075 / Decision_Log v2.44): the OP-063/064/065/EP-016 "How it's met" notes are
+// written `… ) (updated DATE)_` with no leading `_(updated` token, so the criterion
+// regex dropped 18 of 113 lines and those drawers rendered "No acceptance criteria
+// set" — yet every other check stayed green. This walks the live detail block per
+// `#### <ID>`, counts the RAW emitted AC bullet lines (loose match — emoji + AC-N
+// only, no trailing-date requirement), and asserts the real parser kept all of them.
+{
+  const raw = readFileSync(join(DATA, "plexus_operations.md"), "utf8");
+  const lines = raw.split("\n");
+  const model = P.parse(raw);
+  const AC_LINE = /^\s*-\s+(?:🟥|🟨|🟩)\s+AC-\d+/;          // every emitted criterion, format-agnostic
+  const HEAD = /^####\s+((?:EP|BT|ML|OP|PD|CB|R)-\d{3})\s*$/; // detail-block item header
+  let i = 0;
+  for (; i < lines.length; i++) if (/^###\s+Acceptance criteria detail\s*$/i.test(lines[i])) break;
+  const rawCounts = {};
+  let curId = null, totalRaw = 0;
+  for (i = i + 1; i < lines.length; i++) {
+    const r = lines[i];
+    if (/^##\s/.test(r) || /^###\s/.test(r) || /^---\s*$/.test(r)) break; // end of the sub-section
+    const hm = r.match(HEAD);
+    if (hm) { curId = hm[1]; continue; }
+    if (curId && AC_LINE.test(r)) { rawCounts[curId] = (rawCounts[curId] || 0) + 1; totalRaw++; }
+  }
+  const dropped = [];
+  let totalParsed = 0;
+  for (const id of Object.keys(rawCounts)) {
+    const got = (model.acDetail[id] || []).length;
+    totalParsed += got;
+    if (got !== rawCounts[id]) dropped.push(`${id}: ${rawCounts[id]} emitted, ${got} parsed`);
+  }
+  if (dropped.length) fail(`AC writer↔parser: ${dropped.length} item(s) silently drop criterion lines (parser regex too strict):\n   ${dropped.join("\n   ")}`);
+  else ok(`AC writer↔parser: all ${totalRaw} emitted AC bullet lines parse across ${Object.keys(rawCounts).length} items (no silent drops; ${totalParsed} parsed)`);
+}
+
+console.log(failed ? `\n${failed} AC case(s) FAILED` : `\nAll AC-checklist cases passed (lossless migration + minimal-diff box-click + cycle + note parsing + writer↔parser coverage)`);
 process.exit(failed ? 1 : 0);
