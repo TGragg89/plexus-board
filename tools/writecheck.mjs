@@ -28,7 +28,7 @@ const DATA = join(root, "..", "plexus-bucket-d", "ops");
 // Must differ from BOTH pilot files' current "Last updated" so every bump is a real
 // edit (else the date line doesn't change and the 2-line invariant can't hold). Picked
 // distinct from any plausible session date — keep != the files' header dates on touch.
-const NEW_DATE = "2026-07-01"; // sentinel: must differ from the files' current Last updated (advanced past 2026-06-30 — OP-075)
+const NEW_DATE = "2026-07-02"; // sentinel: must differ from the files' current Last updated (advanced past 2026-07-01 — OP-074 data files reach 2026-07-01)
 
 // kind "status"/"priority" use the styled-token write primitives; kind "cell"
 // (OP-039) uses the generic setCell on a plain-text field (title/description/notes/

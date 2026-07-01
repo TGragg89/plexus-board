@@ -52,6 +52,7 @@ const NATIVE = [
   "plexus_operations.md",
   "laser_cutting_operations.md",
   "claude_ci_operations.md",
+  "home_improvement_operations.md", // OP-074 onboarding — §A.6.1 native file, every card titled
 ];
 
 let failed = 0;
@@ -84,5 +85,5 @@ const check = (f, { regression }) => {
 for (const f of MIGRATED) check(f, { regression: false });
 for (const f of NATIVE) check(f, { regression: true });
 
-console.log(failed ? `\n${failed} title-fallback case(s) FAILED` : `\nAll title-fallback cases passed (four migrated files + three native files: every board card has a non-empty title)`);
+console.log(failed ? `\n${failed} title-fallback case(s) FAILED` : `\nAll title-fallback cases passed (four migrated files + four native files: every board card has a non-empty title)`);
 process.exit(failed ? 1 : 0);
