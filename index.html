@@ -1151,13 +1151,20 @@
     { path: "ops/home_network_operations.md", project: "Home Network", tag: "HomeNet", color: "#1b7c83", vocab: "emoji",
       shape: "Backlog", owner: "Home Network", root: "C:\\Users\\TJgra\\My Drive\\Home Network" },
     { path: "ops/understory_operations.md", project: "Landscaping", tag: "Landscape", color: "#9e6a03", vocab: "word",
-      shape: "Catalog", owner: "Landscaping", root: "C:\\Users\\TJgra\\My Drive\\Landscaping project" }
+      shape: "Catalog", owner: "Landscaping", root: "C:\\Users\\TJgra\\My Drive\\Landscaping project" },
+    // OP-074 Home Improvement onboarding (EP-013 "Portfolio board rollout", 2026-07-01, Decision_Log.md
+    // v2.42): the SECOND true new-project onboarding after Claude CI — a DIRECT onboard (no Bucket B
+    // critique pass). Repo-canonical §A.6.1 file with word vocab (incl. Rider-2 ready/inreview), seeded
+    // from the 7 promoted Home-Improvement captures (EP-017 + OP-001…OP-006). Project count 7→8.
+    { path: "ops/home_improvement_operations.md", project: "Home Improvement", tag: "HomeImp", color: "#cf222e", vocab: "word",
+      shape: "Backlog", owner: "Home Improvement", root: "C:\\Users\\TJgra\\My Drive\\Home Improvement Projects" }
   ];
   var EP_REGISTER_PATH = "ops/EP_Register.md"; // portfolio-global Epic allocator (slice 3 intake)
   var CAPTURES_PATH = "ops/captures.md";       // OP-040 writable Captures store (class-1 lists)
   var PIE_PATH = "ops/pie.md";                 // OP-063 repo-canonical Pie-in-the-Sky store; surface read-only this session (board write = OP-064) (class 2)
   var PROJECT_COLORS = { "Plexus": "#8957e5", "Laser Cutting": "#e3603a", "Claude CI": "#0969da",
-    "Lapdesk": "#2da44e", "3D Printing": "#bf3989", "Home Network": "#1b7c83", "Landscaping": "#9e6a03" };
+    "Lapdesk": "#2da44e", "3D Printing": "#bf3989", "Home Network": "#1b7c83", "Landscaping": "#9e6a03",
+    "Home Improvement": "#cf222e" };
   // Priority is plain text (P0..P3) in both pilot files' vocabularies — file-native,
   // no styling. Same write target set for every file (punch-list 2).
   var PRIOS = ["P0", "P1", "P2", "P3"];
