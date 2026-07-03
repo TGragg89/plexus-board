@@ -1157,14 +1157,22 @@
     // critique pass). Repo-canonical §A.6.1 file with word vocab (incl. Rider-2 ready/inreview), seeded
     // from the 7 promoted Home-Improvement captures (EP-017 + OP-001…OP-006). Project count 7→8.
     { path: "ops/home_improvement_operations.md", project: "Home Improvement", tag: "HomeImp", color: "#cf222e", vocab: "word",
-      shape: "Backlog", owner: "Home Improvement", root: "C:\\Users\\TJgra\\My Drive\\Home Improvement Projects" }
+      shape: "Backlog", owner: "Home Improvement", root: "C:\\Users\\TJgra\\My Drive\\Home Improvement Projects" },
+    // OP-076 Finances onboarding (EP-013 "Portfolio board rollout", 2026-07-03, Decision_Log.md
+    // v2.49): the THIRD true new-project onboarding after Claude CI + Home Improvement — a DIRECT
+    // onboard (no Bucket B critique pass). Repo-canonical §A.6.1 file with word vocab (incl. Rider-2
+    // ready/inreview), seeded from 7 SANITIZED rows of the Drive Finances_Backlog.md (EP-026 +
+    // ML-001 + OP-001…OP-005). SECURITY: the ops file carries no balances / plan names / account
+    // detail (Finances Project_Instructions.md §4). Project count 8→9.
+    { path: "ops/finances_operations.md", project: "Finances", tag: "Finances", color: "#1a7f37", vocab: "word",
+      shape: "Backlog", owner: "Finances", root: "C:\\Users\\TJgra\\My Drive\\Finances" }
   ];
   var EP_REGISTER_PATH = "ops/EP_Register.md"; // portfolio-global Epic allocator (slice 3 intake)
   var CAPTURES_PATH = "ops/captures.md";       // OP-040 writable Captures store (class-1 lists)
   var PIE_PATH = "ops/pie.md";                 // OP-063 repo-canonical Pie-in-the-Sky store; surface read-only this session (board write = OP-064) (class 2)
   var PROJECT_COLORS = { "Plexus": "#8957e5", "Laser Cutting": "#e3603a", "Claude CI": "#0969da",
     "Lapdesk": "#2da44e", "3D Printing": "#bf3989", "Home Network": "#1b7c83", "Landscaping": "#9e6a03",
-    "Home Improvement": "#cf222e" };
+    "Home Improvement": "#cf222e", "Finances": "#1a7f37" };
   // Priority is plain text (P0..P3) in both pilot files' vocabularies — file-native,
   // no styling. Same write target set for every file (punch-list 2).
   var PRIOS = ["P0", "P1", "P2", "P3"];
