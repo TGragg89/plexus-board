@@ -54,6 +54,7 @@ const NATIVE = [
   "claude_ci_operations.md",
   "home_improvement_operations.md", // OP-074 onboarding — §A.6.1 native file, every card titled
   "finances_operations.md",         // OP-076 onboarding — §A.6.1 native file, every card titled
+  "job_hunt_operations.md",         // OP-077 onboarding — §A.6.1 native file, every card titled
 ];
 
 let failed = 0;
