@@ -35,7 +35,11 @@ const fail = (msg) => { failed++; console.log("FAIL  " + msg); };
 const FLIPS = [
   { file: "plexus_operations.md",        id: "EP-001", token: "`ready`",    expect: "Ready"     },
   { file: "plexus_operations.md",        id: "EP-002", token: "`inreview`", expect: "In Review" },
-  { file: "laser_cutting_operations.md", id: "EP-004", token: "🟡",          expect: "Ready"     },
+  // EP-006 (not EP-004) is the Ready-flip fixture: EP-004 was set Ready (🟡) in the live
+  // laser data by a 2026-07-04 session, so flipping it to Ready is a no-op (1-line diff).
+  // EP-006 is Backlog (🔲), so a Ready flip is a real 2-line edit. Fixture hygiene, not a
+  // code change — unrelated to EP-034 (flagged in the OP-080/OP-081 BUILD_STATE line).
+  { file: "laser_cutting_operations.md", id: "EP-006", token: "🟡",          expect: "Ready"     },
   { file: "laser_cutting_operations.md", id: "EP-005", token: "👀",          expect: "In Review" },
 ];
 for (const c of FLIPS) {
