@@ -1109,7 +1109,28 @@
     return c;
   }
 
-  var api = { mapStatus: mapStatus, parse: parse, serialize: serialize, indexLines: indexLines, normPrio: normPrio, findRecord: findRecord, setStatus: setStatus, setPriority: setPriority, setCell: setCell, sanitizeCell: sanitizeCell, rollupStatus: rollupStatus, bumpLastUpdated: bumpLastUpdated, insertTopLevelRow: insertTopLevelRow, nextLocalId: nextLocalId, nextChildId: nextChildId, insertChildRow: insertChildRow, nextCaptureId: nextCaptureId, bumpCaptureHWM: bumpCaptureHWM, insertCaptureRow: insertCaptureRow, pieAddIdea: pieAddIdea, pieEditNotes: pieEditNotes, pieBumpUpdated: pieBumpUpdated, parseAcDetail: parseAcDetail, cycleCriterion: cycleCriterion, acCounts: acCounts, AC_STATE: AC_STATE, AC_EMOJI: AC_EMOJI, AC_NEXT: AC_NEXT, AC_LABEL: AC_LABEL };
+  // ---- CB register (Strategic Goals) parser — shared by the engine + cbcheck harness
+  // (one source of truth, no drift; same principle as roundtrip extracting this core).
+  // The repo file ops/cb_register.md is a read-only MIRROR of the Drive-canonical
+  // CB_Register.md (OP-080/EP-034). Each table row's 3rd column ("Execution") carries an
+  // explicit EP-NNN token; the engine derives each Epic's coupled_cb from it and cascades
+  // to that Epic's children (OP-081). Rows with no execution Epic carry "—" (no coupling).
+  // Row shape: | CB-NNN | Owner | Execution | Description | Date |
+  function parseCbRegister(text) {
+    var rows = [], cbByEpic = {}, nextFree = "";
+    String(text == null ? "" : text).split("\n").forEach(function (ln) {
+      var m = ln.match(/^\|\s*(CB-\d{3})\s*\|\s*([^|]*)\|\s*([^|]*)\|\s*([^|]*)\|\s*([^|]*)\|/);
+      if (m) {
+        var execCell = m[3].trim(), em = execCell.match(/(EP-\d{3})/), exec = em ? em[1] : "";
+        rows.push({ id: m[1], owner: m[2].trim(), exec: exec, desc: m[4].trim(), date: m[5].trim() });
+        if (exec) cbByEpic[exec] = m[1]; // EP-NNN -> CB-NNN (the coupling the engine cascades)
+      }
+      var nf = ln.match(/Next free number[^:]*:\s*\**\s*(CB-\d{3})/i); if (nf) nextFree = nf[1];
+    });
+    return { rows: rows, cbByEpic: cbByEpic, nextFree: nextFree };
+  }
+
+  var api = { mapStatus: mapStatus, parse: parse, serialize: serialize, indexLines: indexLines, normPrio: normPrio, findRecord: findRecord, setStatus: setStatus, setPriority: setPriority, setCell: setCell, sanitizeCell: sanitizeCell, rollupStatus: rollupStatus, bumpLastUpdated: bumpLastUpdated, insertTopLevelRow: insertTopLevelRow, nextLocalId: nextLocalId, nextChildId: nextChildId, insertChildRow: insertChildRow, nextCaptureId: nextCaptureId, bumpCaptureHWM: bumpCaptureHWM, insertCaptureRow: insertCaptureRow, pieAddIdea: pieAddIdea, pieEditNotes: pieEditNotes, pieBumpUpdated: pieBumpUpdated, parseAcDetail: parseAcDetail, cycleCriterion: cycleCriterion, acCounts: acCounts, parseCbRegister: parseCbRegister, AC_STATE: AC_STATE, AC_EMOJI: AC_EMOJI, AC_NEXT: AC_NEXT, AC_LABEL: AC_LABEL };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   root.Plexus = api;
 })(typeof globalThis !== "undefined" ? globalThis : this);
@@ -1173,6 +1194,7 @@
       shape: "Backlog", owner: "Job Hunt", root: "C:\\Users\\TJgra\\My Drive\\Job Hunt" },
   ];
   var EP_REGISTER_PATH = "ops/EP_Register.md"; // portfolio-global Epic allocator (slice 3 intake)
+  var CB_REGISTER_PATH = "ops/cb_register.md"; // OP-080 read-only repo MIRROR of the Drive-canonical CB_Register (Strategic Goals); engine reads it for coupled_cb + the Registers CB view (OP-081, EP-034)
   var CAPTURES_PATH = "ops/captures.md";       // OP-040 writable Captures store (class-1 lists)
   var PIE_PATH = "ops/pie.md";                 // OP-063 repo-canonical Pie-in-the-Sky store; surface read-only this session (board write = OP-064) (class 2)
   var PROJECT_COLORS = { "Plexus": "#8957e5", "Laser Cutting": "#e3603a", "Claude CI": "#0969da",
@@ -1326,6 +1348,12 @@
     loads.push(ghGet(PIE_PATH, token).then(function (r) {
       if (!r.notModified) { STATE.pie = { raw: r.body, sha: r.sha }; STATE.pieErr = null; }
     }).catch(function (e) { if (e.auth) throw e; STATE.pieErr = e.message; }));
+    // OP-081: the CB register mirror feeds coupled_cb (Strategic-Goal coupling) + the
+    // Registers CB view. A missing/404 mirror must NOT break the board (like captures/pie)
+    // — coupling just stays empty; only auth errors propagate.
+    loads.push(ghGet(CB_REGISTER_PATH, token).then(function (r) {
+      if (!r.notModified) { STATE.cbRegRaw = r.body; STATE.cbByEpic = P.parseCbRegister(r.body).cbByEpic; STATE.cbErr = null; }
+    }).catch(function (e) { if (e.auth) throw e; STATE.cbErr = e.message; STATE.cbByEpic = STATE.cbByEpic || {}; }));
     Promise.all(loads).then(function () {
       STATE.lastLoaded = Date.now();
       setStatus("");
@@ -1388,6 +1416,13 @@
     for (var key in rec) c[key] = rec[key];
     c.project = meta.project; c.projTag = meta.tag; c.color = meta.color || PROJECT_COLORS[meta.project] || "#555";
     c.filePath = meta.path; c.vocab = meta.vocab; c.root = meta.root;
+    // OP-081: derive coupled_cb from the CB register (no per-item field). An Epic couples
+    // via its own id; any child cascades via its parent Epic's id. parentId is "" on a
+    // top-level item, so `parentId || id` picks the Epic key for both; a Bet/ML parent
+    // (or an uncoupled Epic) simply misses the map and stays uncoupled.
+    var cbMap = STATE.cbByEpic || {};
+    var cbKey = rec.parentId || rec.id;
+    if (cbKey && cbMap[cbKey]) c.coupled_cb = cbMap[cbKey];
     c.swim = rec.type === "Bet" ? "Bets" : rec.type === "Maintenance Loop" ? "Maintenance Loops" : (rec.kind === "EP" ? "Epics" : "Epics");
     return c;
   }
@@ -2914,7 +2949,7 @@
     host.appendChild(el("div", "crumb", "Reference · allocator ledger (class 3)"));
     var hd = el("h2", "shd"); hd.appendChild(document.createTextNode("Registers — CB / EP "));
     hd.appendChild(el("span", "schip", "reference view")); host.appendChild(hd);
-    host.appendChild(el("div", "reach", "⤓ EP_Register is repo-side (read live); CB_Register is Drive-canonical (pointer only)"));
+    host.appendChild(el("div", "reach", "⤓ EP_Register + CB_Register (repo mirror) are read live, repo-side; CB allocation stays Drive governance"));
     host.appendChild(el("p", "ssub", "Allocators, not backlogs. The Epics + Strategic Goals these number already render as board entities — this is the number ledger for cross-reference, read-only. Surfacing them as per-row work items would corrupt board meaning (function-class 3)."));
     var box = el("div"); host.appendChild(box);
     if (STATE.epRegRaw == null) {
@@ -2942,8 +2977,33 @@
     } else if (STATE.epRegRaw) { box.appendChild(el("p", "ssub", "Couldn't parse EP_Register rows.")); }
     else { box.appendChild(el("p", "ssub", "EP_Register not loaded.")); }
     var ln2 = el("div", "legend-note");
-    ln2.appendChild(el("h5", null, "CB_Register (Strategic Goals)"));
-    ln2.appendChild(el("p", "cap-rec", "Drive-canonical (C:\\Users\\TJgra\\My Drive\\Plexus\\CB_Register.md) — outside the app's GitHub reach. A repo mirror (like Pie) would be needed for a live view — not built yet (tracked: Plexus > BT-001 > OP-040; Drive-reach, see capture W-13 / CAP-031)."));
+    ln2.appendChild(el("h5", null, "CB_Register (Strategic Goals) — live, repo mirror"));
+    if (STATE.cbRegRaw == null) {
+      var info2 = getToken();
+      if (info2 && !info2.expired) {
+        ln2.appendChild(el("p", "ssub", "Loading CB_Register mirror…"));
+        ghGet(CB_REGISTER_PATH, info2.token).then(function (r) { STATE.cbRegRaw = r.body; STATE.cbByEpic = P.parseCbRegister(r.body).cbByEpic; if (ACTIVE_SURFACE === "registers") renderRegisters(); })
+          .catch(function (e) { STATE.cbRegRaw = ""; if (ACTIVE_SURFACE === "registers") renderRegisters(); });
+      } else { ln2.appendChild(el("p", "ssub", "Connect a token to read the CB_Register mirror.")); }
+    } else if (STATE.cbRegRaw) {
+      var cb = P.parseCbRegister(STATE.cbRegRaw);
+      if (cb.rows.length) {
+        var ctbl = el("table", "reftbl");
+        var chrow = el("tr"); ["CB", "Owner", "Execution", "Description", "Raised"].forEach(function (t) { chrow.appendChild(el("th", null, t)); }); ctbl.appendChild(chrow);
+        cb.rows.forEach(function (r) {
+          var tr = el("tr");
+          tr.appendChild(el("td", "capid", r.id));
+          tr.appendChild(el("td", null, r.owner));
+          tr.appendChild(el("td", "capid", r.exec || "—"));
+          tr.appendChild(el("td", null, r.desc));
+          tr.appendChild(el("td", null, r.date));
+          ctbl.appendChild(tr);
+        });
+        ln2.appendChild(ctbl);
+        if (cb.nextFree) ln2.appendChild(el("p", "cap-rec", "Next free: " + cb.nextFree));
+      } else { ln2.appendChild(el("p", "ssub", "Couldn't parse CB_Register mirror rows.")); }
+      ln2.appendChild(el("p", "cap-rec", "Canonical: Drive-side (C:\\Users\\TJgra\\My Drive\\Plexus\\CB_Register.md). This is the read-only repo mirror (ops/cb_register.md) — CB allocation stays Cowork governance; the board reads it for Strategic-Goal coupling + this view (OP-080/OP-081, EP-034; resolves the CB half of CAP-031/W-13)."));
+    } else { ln2.appendChild(el("p", "ssub", "CB_Register mirror not found (ops/cb_register.md).")); }
     box.appendChild(ln2);
   }
 
