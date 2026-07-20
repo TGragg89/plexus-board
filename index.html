@@ -98,6 +98,31 @@
 
   .toast { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); background: var(--panel2); border: 1px solid var(--line); padding: 9px 16px; border-radius: 8px; font-size: 13px; box-shadow: 0 6px 24px #0008; max-width: 70vw; }
 
+  /* ---------- OP-079 (EP-031) — graceful stale-SHA (409) recovery: calm, visible sync states ----------
+     Same 409 root cause as OP-065; on a backgrounded tab the first write after refocus
+     hits a stale SHA. Instead of an error dialog we refetch → re-apply → retry and surface
+     it as unobtrusive states per the EP-031 wireframe screen 2d "Sync / conflict recovery":
+     a header stale dot, a thin amber banner, a two-line syncing toast, a board dim-lock
+     during reconcile, then the normal green commit toast. Global (not mobile-gated) but
+     deliberately quiet on desktop — a small dot, a thin banner, a toast; never a blocker. */
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .35; } }
+  .staledot { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; color: #d29922; }
+  .staledot::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: #d29922; animation: pulse 1.2s infinite; }
+  .sync-banner { display: flex; align-items: center; gap: 8px; padding: 6px 14px; font-size: 12.5px; color: #e6c07a;
+    background: rgba(210,153,34,.12); border-bottom: 1px solid rgba(210,153,34,.35); }
+  .sync-banner::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: #d29922; flex: none; }
+  /* Board dim-lock — reuses the .modal-bg fixed-overlay pattern but subtler, and its only
+     job is to intercept pointer events (lock writes) for the moment the reconcile runs.
+     z-index below the confirm/wizard modal-bg (50) and search (60) but above the board. */
+  .sync-lock { position: fixed; inset: 0; background: #0b0e1355; z-index: 44; cursor: progress; }
+  /* Two-line sync toast + non-destructive error, rendered into the existing #toast host. */
+  .sync-t-title { font-size: 12.5px; font-weight: 600; color: var(--ink); }
+  .sync-t-title.err { color: #e6c07a; }
+  .sync-t-sub { font-size: 11px; color: var(--ink-dim); margin-top: 2px; }
+  .sync-retry { margin-top: 8px; padding: 3px 12px; font-size: 12px; border: 1px solid var(--accent);
+    background: transparent; color: var(--accent); border-radius: 6px; cursor: pointer; }
+  .sync-retry:hover { background: #16385f; }
+
   /* ---------- Card status control (slice 2 — Write Pattern 1) ---------- */
   .cardact { margin-top: 7px; display: flex; align-items: center; gap: 6px; }
   .cardact .lbl { color: var(--ink-faint); font-size: 10.5px; text-transform: uppercase; letter-spacing: .4px; }
@@ -483,6 +508,8 @@
         <span aria-hidden="true">🔍</span><span class="gs-ph">Search everything…</span><span class="gs-key">/</span>
       </button>
       <span class="spacer"></span>
+      <!-- OP-079 — header stale dot; shows while a stale-SHA reconcile is in flight. -->
+      <span class="staledot hidden" id="hdr-staledot">stale</span>
       <span class="meta" id="hdr-status"></span>
       <label class="hsel board-only">View <select id="handle-sel" title="Cross-project handle views (H-NN)"></select></label>
       <button id="new-btn" class="primary board-only" title="Create a new work item (intake wizard)">+ New</button>
@@ -501,6 +528,10 @@
       <button id="saveview-btn" title="Save current filters to this browser">Save view</button>
     </div>
   </header>
+
+  <!-- OP-079 (EP-031) — calm stale-SHA recovery banner (wireframe screen 2d). Thin,
+       non-blocking; shows only while a backgrounded-tab 409 is being reconciled. -->
+  <div class="sync-banner hidden" id="sync-banner">Tab was backgrounded — refreshing from the repo…</div>
 
   <div id="appmain">
   <nav id="sidenav" aria-label="Surfaces"></nav>
@@ -533,6 +564,10 @@
 </div>
 
 <div class="toast hidden" id="toast"></div>
+
+<!-- OP-079 — board dim-lock: covers the board so writes are locked for the moment a
+     stale-SHA reconcile runs, then is removed on success or the non-destructive error. -->
+<div class="sync-lock hidden" id="sync-lock" aria-hidden="true"></div>
 
 <!-- ============================= DETAIL DRAWER (punch-list 3) ============================= -->
 <div class="drawer-bg hidden" id="drawer-bg"></div>
@@ -1955,6 +1990,149 @@
     });
   }
 
+  // ================= OP-079 (EP-031) — graceful stale-SHA (409) recovery =================
+  // The board's write is optimistically locked on the blob SHA cached at load. A
+  // backgrounded mobile tab is suspended, so the first write after refocus commits with a
+  // stale SHA and GitHub answers 409/422. The old behavior hard-refused and asked the user
+  // to re-apply by hand — unusable on a phone. reconcileWrite instead refetches the latest
+  // SHA, re-applies the SAME pending edit onto the fresh bytes, and retries — up to
+  // maxRetries — before giving up. It is PURE orchestration over an injected `io` (network
+  // + the visible sync-state callbacks all live in io), so tools/conflictcheck.mjs drives
+  // this REAL shipped function with a stubbed GitHub layer (one source of truth, no drift).
+  // DOM-free by construction — belongs in the app script, never in the #plexus-core block.
+  //
+  //   io.first          : { text, sha }         — the initial payload (cached bytes + sha)
+  //   io.put(text, sha) : Promise(resp)         — PUT; MUST reject err.conflict on 409/422
+  //   io.rebuild()      : Promise({ text, sha }) — refetch latest SHA + re-apply the edit
+  //   io.onRetry(n,tot) : void                  — announce retry n (1..tot): dot+banner+toast
+  //
+  // Resolves { resp, retries } on success (retries = how many refetch-retries it took, 0 if
+  // the first write landed). Rejects Error{ exhausted:true, retries } when every retry still
+  // conflicts — the caller then PRESERVES the user's edit (AC-3), never overwrites, never
+  // drops it. retry counter runs 1 → 2 → … → maxRetries (AC-1/AC-2).
+  function reconcileWrite(io, maxRetries) {
+    var retries = 0; // 0 = the initial write; 1..maxRetries = refetch-and-retry passes
+    function tryOnce(payload) {
+      return io.put(payload.text, payload.sha).then(function (resp) {
+        return { resp: resp, retries: retries };
+      }, function (err) {
+        if (!err || !err.conflict) throw err;            // non-conflict errors bubble unchanged
+        if (retries >= maxRetries) {                     // all retries hit 409 — preserve edit (AC-3)
+          var ex = new Error("stale-SHA conflict unresolved after " + maxRetries + " retries");
+          ex.exhausted = true; ex.retries = retries;
+          throw ex;
+        }
+        retries++;                                       // entering retry N
+        io.onRetry(retries, maxRetries);                 // visible: stale dot + banner + "retry N of tot"
+        return io.rebuild().then(tryOnce);               // refetch latest + re-apply, then retry
+      });
+    }
+    return tryOnce(io.first);
+  }
+
+  // Visible sync states (AC-2). Kept as tiny DOM helpers so reconcileWrite stays DOM-free.
+  function showSyncReconciling(on) {
+    $("sync-banner").classList.toggle("hidden", !on);
+    $("hdr-staledot").classList.toggle("hidden", !on);
+    $("sync-lock").classList.toggle("hidden", !on);   // dim + lock writes during reconcile
+  }
+  // Two-line "syncing… / retrying (n of tot)" toast, rendered into the existing #toast
+  // host; sticky (no auto-hide) while the reconcile runs — the green commit toast or the
+  // error toast replaces it when the loop settles.
+  function syncToast(title, sub) {
+    var t = $("toast");
+    t.innerHTML = "";
+    t.appendChild(el("div", "sync-t-title", title));
+    if (sub) t.appendChild(el("div", "sync-t-sub", sub));
+    t.classList.remove("hidden");
+    clearTimeout(toast._t);
+  }
+  // Non-destructive error state (AC-3): the edit is saved, not lost; offer a one-click
+  // Retry. Calm, not a blocking dialog. Auto-hides after a generous window; the pending
+  // edit (for status/priority) is also re-offered on the next load.
+  function syncErrorToast(id, retryFn) {
+    var t = $("toast");
+    t.innerHTML = "";
+    t.appendChild(el("div", "sync-t-title err", "Couldn't sync " + id + " after 3 tries"));
+    t.appendChild(el("div", "sync-t-sub", "Your change is saved, not lost — the repo kept changing under the write."));
+    if (retryFn) {
+      var b = el("button", "sync-retry", "Retry");
+      b.addEventListener("click", function () { t.classList.add("hidden"); retryFn(); });
+      t.appendChild(b);
+    }
+    t.classList.remove("hidden");
+    clearTimeout(toast._t); toast._t = setTimeout(function () { t.classList.add("hidden"); }, 9000);
+  }
+
+  // commitWithRecovery — the single EDIT write path (status/priority, AC box, editable
+  // cell) run through reconcileWrite. Centralizes the io construction, the visible sync
+  // states, and the success/preserve-on-failure handling; each call site supplies only the
+  // per-edit bits (how to re-apply onto fresh bytes, the commit message, the success toast).
+  //   spec = { path, token, id, msg, reapply(raw)->text|null, notFound, writing,
+  //            pending?, onDone(resp,retries), okToast(shortSha,retries), onReset?, retryFn?, errPrefix }
+  function commitWithRecovery(spec) {
+    var f = STATE.files[spec.path];
+    var firstText = spec.reapply(f.model.raw);
+    if (firstText == null) { toast(spec.notFound); if (spec.onReset) spec.onReset(); return; }
+    if (spec.pending) savePending(spec.pending); // status/priority persist so a reload re-offers (§8 risk 5)
+    setStatus(spec.writing);
+
+    var io = {
+      lastText: firstText,
+      first: { text: firstText, sha: f.sha },
+      put: function (text, sha) { io.lastText = text; return ghPut(spec.path, spec.token, text, sha, spec.msg); },
+      rebuild: function () {
+        // Refetch the latest blob SHA and re-apply the pending edit onto the FRESH bytes,
+        // so the retry carries the user's change forward without clobbering others' commits.
+        return ghGet(spec.path, spec.token).then(function (r) {
+          var base = r.notModified ? f.model.raw : r.body;
+          if (!r.notModified) { f.model = P.parse(r.body); f.sha = r.sha; } // adopt fresh base
+          var t = spec.reapply(base);
+          if (t == null) { throw new Error("row " + spec.id + " not found after reconcile"); }
+          return { text: t, sha: f.sha };
+        });
+      },
+      onRetry: function (n, total) {
+        showSyncReconciling(true);
+        syncToast("Syncing… conflict resolved", "Refetched newer version · re-applying your move (retry " + n + " of " + total + ")");
+      }
+    };
+
+    reconcileWrite(io, 3).then(function (out) {
+      if (spec.pending) clearPending();
+      showSyncReconciling(false);
+      f.model = P.parse(io.lastText);
+      f.sha = (out.resp && out.resp.content && out.resp.content.sha) || f.sha;
+      delete etags[spec.path];
+      var shortSha = (out.resp && out.resp.commit && out.resp.commit.sha) ? out.resp.commit.sha.slice(0, 7) : "";
+      setStatus("");
+      render();
+      if (DRAWER_ID) renderDrawer();
+      spec.okToast(shortSha, out.retries);
+    }).catch(function (err) {
+      showSyncReconciling(false);
+      if (err.auth) {
+        // Token died mid-write: fail soft to setup; the pending edit is preserved + re-offered.
+        forgetToken(); setStatus("token rejected"); showSetup();
+        toast("Token rejected — reconnect; your change to " + spec.id + " is saved and will be offered again.");
+        return;
+      }
+      if (err.exhausted) {
+        // AC-3 — every retry hit 409. Do NOT clear pending; show the calm, non-destructive
+        // error with a Retry. The edit is not lost.
+        setStatus("sync unresolved");
+        if (spec.onReset) spec.onReset();
+        syncErrorToast(spec.id, spec.retryFn);
+        return;
+      }
+      // Some other write/network error — clear pending (unrecoverable here) and report.
+      if (spec.pending) clearPending();
+      setStatus("write error");
+      if (spec.onReset) spec.onReset();
+      toast(spec.errPrefix + err.message);
+    });
+  }
+
   // ---- Pending write (survives 401 / reload per §8 risk 5) ----
   function savePending(p) { try { localStorage.setItem(PEND_KEY, JSON.stringify(p)); } catch (e) {} }
   function getPending() { try { return JSON.parse(localStorage.getItem(PEND_KEY) || "null"); } catch (e) { return null; } }
@@ -2022,52 +2200,35 @@
   }
 
   function doWrite(path, id, kind, target, styled, msg, from, selEl) {
-    var f = STATE.files[path];
-    // Build new content from a FRESH parse of the cached raw (edits start empty).
-    var m2 = P.parse(f.model.raw);
-    var ok = kind === "priority" ? P.setPriority(m2, id, styled) : P.setStatus(m2, id, styled);
-    if (!ok) { toast("Could not locate the " + kind + " cell for " + id); resetSel(selEl, from); return; }
-    P.bumpLastUpdated(m2, today());
-    var newText = P.serialize(m2);
-
-    // Persist intent so a 401 mid-write doesn't lose it (§8 risk 5).
-    savePending({ path: path, id: id, kind: kind, target: target });
-    setStatus("writing " + id + "…");
     var token = getToken().token;
-
-    ghPut(path, token, newText, f.sha, msg).then(function (resp) {
-      clearPending();
-      // Adopt the freshly committed bytes + new sha; drop ETag so Reload re-fetches.
-      f.model = P.parse(newText);
-      f.sha = (resp && resp.content && resp.content.sha) || f.sha;
-      delete etags[path];
-      var shortSha = (resp && resp.commit && resp.commit.sha) ? resp.commit.sha.slice(0, 7) : "";
-      setStatus("");
-      render();
-      if (DRAWER_ID) renderDrawer(); // keep an open drawer in sync
-      toast("Committed " + (shortSha ? shortSha + " — " : "") + id + " " + (kind === "priority" ? from + " → " : "→ ") + target);
-    }).catch(function (err) {
-      if (err.auth) {
-        // Fail soft to setup; pending edit is preserved and re-offered after reconnect.
-        forgetToken();
-        setStatus("token rejected");
-        showSetup();
-        toast("Token rejected — reconnect; your change to " + id + " is saved and will be offered again.");
-        return;
-      }
-      if (err.conflict) {
-        // Stale sha: refuse, re-fetch latest, ask the user to re-apply. Never overwrite.
-        clearPending();
-        setStatus("conflict — reloading");
-        toast(id + " NOT written — the file changed on the server since you loaded it. Reloading the latest; please re-apply your change.");
-        loadAll();
-        return;
-      }
-      clearPending();
-      setStatus("write error");
-      resetSel(selEl, from);
-      toast("Write failed: " + err.message);
+    // OP-079: route through the shared stale-SHA recovery path. reapply() re-serializes the
+    // edit onto whatever base bytes it's given (cached raw first; fresh server bytes on each
+    // retry), so a 409 is reconciled and retried instead of hard-refused.
+    commitWithRecovery({
+      path: path, token: token, id: id, msg: msg,
+      writing: "writing " + id + "…",
+      notFound: "Could not locate the " + kind + " cell for " + id,
+      pending: { path: path, id: id, kind: kind, target: target }, // status/priority persist for reload re-offer
+      reapply: function (raw) {
+        var m2 = P.parse(raw);
+        var ok = kind === "priority" ? P.setPriority(m2, id, styled) : P.setStatus(m2, id, styled);
+        if (!ok) return null;
+        P.bumpLastUpdated(m2, today());
+        return P.serialize(m2);
+      },
+      okToast: function (shortSha, retries) {
+        toast("Committed " + (shortSha ? shortSha + " — " : "") + id + " " + (kind === "priority" ? from + " → " : "→ ") + target + reconcileNote(retries));
+      },
+      onReset: function () { resetSel(selEl, from); },
+      retryFn: function () { applyChange(path, id, kind, target, null); },
+      errPrefix: "Write failed: "
     });
+  }
+
+  // Suffix appended to a green commit toast when the write only landed after one or more
+  // stale-SHA reconcile retries — makes the recovery legible without alarming the user.
+  function reconcileNote(retries) {
+    return retries ? " (synced after " + retries + " retr" + (retries > 1 ? "ies" : "y") + ")" : "";
   }
 
   function resetSel(selEl, val) { if (selEl) selEl.value = val; }
@@ -2431,26 +2592,30 @@
     if (!f) { toast("File not loaded: " + path); return; }
     var info = getToken();
     if (!info || info.expired) { showSetup(); toast("Token missing/expired — reconnect, then re-apply."); return; }
-    var m2 = P.parse(f.model.raw);
-    var res = P.cycleCriterion(m2, id, acIndex, today());
-    if (!res) { toast("Could not locate " + id + " / AC-" + acIndex); return; }
-    P.bumpLastUpdated(m2, today());
-    var newText = P.serialize(m2);
-    var msg = "bucket-d: AC " + id + " AC-" + acIndex + " " + res.from + " → " + res.to;
-    setStatus("writing " + id + " AC-" + acIndex + "…");
-    ghPut(path, info.token, newText, f.sha, msg).then(function (resp) {
-      f.model = P.parse(newText);
-      f.sha = (resp && resp.content && resp.content.sha) || f.sha;
-      delete etags[path];
-      var shortSha = (resp && resp.commit && resp.commit.sha) ? resp.commit.sha.slice(0, 7) : "";
-      setStatus("");
-      render();
-      if (DRAWER_ID) renderDrawer();
-      toast("Committed " + (shortSha ? shortSha + " — " : "") + id + " AC-" + acIndex + " → " + AC_LABEL[res.to]);
-    }).catch(function (err) {
-      if (err.auth) { forgetToken(); setStatus("token rejected"); showSetup(); toast("Token rejected — reconnect and re-apply."); return; }
-      if (err.conflict) { setStatus("conflict — reloading"); toast(id + " AC-" + acIndex + " NOT written — the file changed on the server since you loaded it. Reloading; please re-apply."); loadAll(); return; }
-      setStatus("write error"); toast("AC write failed: " + err.message);
+    // Peek at the target transition for the commit message + success toast (cycle is
+    // deterministic on a fresh parse, so this preview matches what reapply() will write).
+    var preview = P.cycleCriterion(P.parse(f.model.raw), id, acIndex, today());
+    if (!preview) { toast("Could not locate " + id + " / AC-" + acIndex); return; }
+    var msg = "bucket-d: AC " + id + " AC-" + acIndex + " " + preview.from + " → " + preview.to;
+    // OP-079 — same graceful stale-SHA recovery as status/priority. cycleCriterion advances
+    // the criterion deterministically from whatever base it's re-parsed off, so a retry
+    // against fresh server bytes re-applies the user's single forward cycle correctly.
+    commitWithRecovery({
+      path: path, token: info.token, id: id, msg: msg,
+      writing: "writing " + id + " AC-" + acIndex + "…",
+      notFound: "Could not locate " + id + " / AC-" + acIndex,
+      reapply: function (raw) {
+        var m2 = P.parse(raw);
+        var res = P.cycleCriterion(m2, id, acIndex, today());
+        if (!res) return null;
+        P.bumpLastUpdated(m2, today());
+        return P.serialize(m2);
+      },
+      okToast: function (shortSha, retries) {
+        toast("Committed " + (shortSha ? shortSha + " — " : "") + id + " AC-" + acIndex + " → " + AC_LABEL[preview.to] + reconcileNote(retries));
+      },
+      retryFn: function () { doAcWrite(path, id, acIndex); },
+      errPrefix: "AC write failed: "
     });
   }
 
@@ -2464,25 +2629,24 @@
     if (!f) { toast("File not loaded: " + path); return; }
     var info = getToken();
     if (!info || info.expired) { showSetup(); toast("Token missing/expired — reconnect, then re-apply."); return; }
-    var m2 = P.parse(f.model.raw);
-    if (!P.setCell(m2, id, field, value)) { toast("Could not locate the " + label + " cell for " + id); return; }
-    P.bumpLastUpdated(m2, today());
-    var newText = P.serialize(m2);
     var msg = "bucket-d: edit " + id + " " + field;
-    setStatus("writing " + id + " " + field + "…");
-    ghPut(path, info.token, newText, f.sha, msg).then(function (resp) {
-      f.model = P.parse(newText);
-      f.sha = (resp && resp.content && resp.content.sha) || f.sha;
-      delete etags[path];
-      var shortSha = (resp && resp.commit && resp.commit.sha) ? resp.commit.sha.slice(0, 7) : "";
-      setStatus("");
-      render();
-      if (DRAWER_ID) renderDrawer();
-      toast("Committed " + (shortSha ? shortSha + " — " : "") + id + " " + label + " updated");
-    }).catch(function (err) {
-      if (err.auth) { forgetToken(); setStatus("token rejected"); showSetup(); toast("Token rejected — reconnect and re-apply."); return; }
-      if (err.conflict) { setStatus("conflict — reloading"); toast(id + " " + label + " NOT written — the file changed on the server since you loaded it. Reloading; please re-apply."); loadAll(); return; }
-      setStatus("write error"); toast(label + " write failed: " + err.message);
+    // OP-079 — same graceful stale-SHA recovery. The field value is fixed, so re-applying
+    // setCell onto fresh server bytes reproduces the user's exact edit on a retry.
+    commitWithRecovery({
+      path: path, token: info.token, id: id, msg: msg,
+      writing: "writing " + id + " " + field + "…",
+      notFound: "Could not locate the " + label + " cell for " + id,
+      reapply: function (raw) {
+        var m2 = P.parse(raw);
+        if (!P.setCell(m2, id, field, value)) return null;
+        P.bumpLastUpdated(m2, today());
+        return P.serialize(m2);
+      },
+      okToast: function (shortSha, retries) {
+        toast("Committed " + (shortSha ? shortSha + " — " : "") + id + " " + label + " updated" + reconcileNote(retries));
+      },
+      retryFn: function () { doFieldWrite(path, id, field, label, value); },
+      errPrefix: label + " write failed: "
     });
   }
 
