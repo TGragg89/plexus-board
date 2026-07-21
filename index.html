@@ -3013,6 +3013,9 @@
   // Promote a capture: the form is pre-filled from the capture's recommended-destination
   // hint but EVERY field stays editable (the recommendation is never forced).
   function openWizard(prefill) {
+    // Guard: a listener wired as addEventListener("click", openWizard) would hand us a
+    // MouseEvent — truthy, no .id — which reads as a prefill ("Promote undefined → …").
+    if (prefill && !prefill.id) prefill = null;
     if (!Object.keys(STATE.files).length) { toast("Load the board first."); return; }
     var info = getToken();
     if (!info || info.expired) { showSetup(); toast("Connect a token before creating items."); return; }
@@ -3260,7 +3263,7 @@
 
   // ---- handle + intake wiring ----
   $("handle-sel").addEventListener("change", function () { ACTIVE_HANDLE = this.value; render(); });
-  $("new-btn").addEventListener("click", openWizard);
+  $("new-btn").addEventListener("click", function () { openWizard(); });
   document.addEventListener("keydown", function (e) {
     if (e.key === "Escape" && !$("wiz-bg").classList.contains("hidden")) closeWizard();
   });
