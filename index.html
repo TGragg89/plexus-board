@@ -612,19 +612,29 @@
        Maintenance-Loop swimlanes (already stacked blocks on desktop) simply stack
        vertically inside whichever column is active.
 
-       DEVIATION FROM WIREFRAME 1a, deliberate: the mock scrolls the pill row
-       horizontally (overflow-x:auto).  AC-1 requires all five counts to be
-       *always visible*, and five pills do not fit 390px — so the row WRAPS
-       instead.  Scrolling would push Done off-screen and fail the AC.
-       Visual contract otherwise per wireframe screen 1a.
+       The pill row SCROLLS HORIZONTALLY per wireframe 1a (Tim's call 2026-07-21,
+       overriding the seeded AC-1 wording "all five counts always visible" — a
+       wrapped two-row picker was rejected).  Five pills do not fit 390px, so the
+       row is a one-line scroller: native momentum panning on touch (touch-action
+       pan-x) and click-drag anywhere on the row for mouse/pen (mSegDrag below).
+       The active pill is always scrolled into view, so the current column is
+       never the one hidden off-screen.
        ========================================================================== */
 
-    /* ---- the picker: the EXISTING .cols row, re-laid-out as pills ---- */
+    /* ---- the picker: the EXISTING .cols row, re-laid-out as a pill scroller ---- */
     .cols {
-      display: flex; flex-wrap: wrap; gap: 6px;
-      margin: 0 -16px; padding: 9px 10px 0;      /* full-bleed to the .board padding */
+      display: flex; flex-wrap: nowrap; gap: 6px;
+      margin: 0 -16px; padding: 9px 10px;        /* full-bleed to the .board padding */
       border-bottom: 1px solid var(--line);
+      overflow-x: auto; overflow-y: hidden;
+      touch-action: pan-x;                       /* let touch pan natively (momentum) */
+      -webkit-overflow-scrolling: touch;
+      overscroll-behavior-x: contain;            /* don't chain to the page / history nav */
+      scrollbar-width: none;                     /* the row is drag-scrolled, not bar-scrolled */
+      cursor: grab;
     }
+    .cols::-webkit-scrollbar { width: 0; height: 0; }
+    .cols.mdragging { cursor: grabbing; user-select: none; }
     .colhead {
       display: flex; align-items: center; gap: 6px; flex: none;
       min-height: 32px; padding: 6px 10px; border-radius: 9px;
@@ -641,11 +651,11 @@
     .colhead.mactive { background: var(--accent-dim); border-color: var(--accent-dim); color: #fff; }
     .colhead.mactive .cnt { background: rgba(255, 255, 255, .22); color: #fff; }
 
-    /* ---- count line — wraps onto its own row as the picker's last flex item ----
-       order:9 keeps it last even though the pills carry no explicit order. */
+    /* ---- count line — its own row BELOW the picker (it cannot ride inside a
+       nowrap scroller, so it is a sibling of .cols, not a child) ---- */
     .mseg-count {
-      display: block; width: 100%; order: 9; margin: 9px -10px 0; padding: 6px 14px;
-      border-top: 1px solid var(--line);
+      display: block; margin: 0 -16px; padding: 6px 14px;
+      border-bottom: 1px solid var(--line);
       font: 400 10px system-ui, -apple-system, sans-serif; color: var(--ink-faint);
     }
     .mseg-count b { color: var(--ink-dim); font-weight: 700; }
@@ -763,12 +773,12 @@
       <div class="colhead">In Progress <span class="cnt" id="c-inprogress">0</span><span class="wip">WIP limit: 3</span></div>
       <div class="colhead">In Review <span class="cnt" id="c-inreview">0</span></div>
       <div class="colhead">Done <span class="cnt" id="c-done">0</span><span class="wip" id="done-wip">this session</span></div>
-      <!-- OP-086 — mobile count line ("N items · <column> · WIP…", wireframe 1a).
-           Deliberately the 6th child of .cols: display:none above the breakpoint means
-           it is not a grid item, so the desktop 5-column head row is untouched, and the
-           five .colhead siblings keep their indices. -->
-      <div class="mseg-count" id="mseg-count"></div>
     </div>
+    <!-- OP-086 — mobile count line ("N items · <column> · WIP…", wireframe 1a).
+         A SIBLING of .cols, not a child: below the breakpoint .cols is a nowrap
+         horizontal scroller, so this line cannot ride inside it. display:none at
+         all widths above the breakpoint keeps the desktop board untouched. -->
+    <div class="mseg-count" id="mseg-count"></div>
     <div id="swimlanes"></div>
     <div class="handle-view hidden" id="handle-view"></div>
     <div class="offaxis" id="offaxis"></div>
@@ -2993,9 +3003,10 @@
     HANDLE_CATALOG.forEach(function (h) { var o = el("option", null, h.id + " — " + h.title); o.value = h.id; sel.appendChild(o); });
   }
   function showHandleMode(on) {
-    // .cols carries OP-086's count line as its 6th child, so hiding the head row
-    // takes the mobile picker and its count line away together.
     document.querySelector(".cols").classList.toggle("hidden", on);
+    // OP-086's count line is a sibling of .cols, so it has to be hidden alongside it
+    // (it is display:none on desktop anyway; this is the mobile handle-view case).
+    $("mseg-count").classList.toggle("hidden", on);
     $("swimlanes").classList.toggle("hidden", on);
     $("offaxis").classList.toggle("hidden", on);
     if (on) $("ungrouped-tray").classList.add("hidden");
@@ -4061,6 +4072,19 @@
     box.appendChild(document.createTextNode(
       " items · " + MCOL + (wip && wip.textContent ? " · " + wip.textContent : "")));
   }
+  // The row scrolls, so the active pill must never be the one parked off-screen.
+  // Done by hand rather than scrollIntoView(), which also scrolls ancestors — that
+  // would yank the board (and on desktop, the page) around as a side effect.
+  function mSegReveal() {
+    var cols = document.querySelector(".cols");
+    var head = mSegHeads()[COLS.indexOf(MCOL)];
+    if (!cols || !head) return;
+    var pad = 10;                                              // == .cols padding-inline
+    var left = head.offsetLeft - pad;
+    var right = head.offsetLeft + head.offsetWidth + pad - cols.clientWidth;
+    if (cols.scrollLeft > left) cols.scrollLeft = left;
+    else if (cols.scrollLeft < right) cols.scrollLeft = right;
+  }
   function mSegApply() {
     if (!IS_MOBILE) return;
     document.body.setAttribute("data-mcol", String(COLS.indexOf(MCOL) + 1));
@@ -4071,6 +4095,7 @@
       heads[i].setAttribute("aria-pressed", on ? "true" : "false");
     }
     mSegCount();
+    mSegReveal();
   }
   function mSegPick(col) {
     if (COLS.indexOf(col) < 0 || col === MCOL) return;
@@ -4094,15 +4119,60 @@
         heads[i].classList.remove("mactive");
       }
     }
-    if (!toMobile) { document.body.removeAttribute("data-mcol"); $("mseg-count").innerHTML = ""; }
+    if (!toMobile) {
+      document.body.removeAttribute("data-mcol");
+      $("mseg-count").innerHTML = "";
+      // leave no scrolled/dragging residue on the head row the desktop grid reuses
+      var cols = document.querySelector(".cols");
+      cols.classList.remove("mdragging"); cols.scrollLeft = 0;
+    }
   }
   function mSegFrom(ev) {
     var h = ev.target && ev.target.closest && ev.target.closest(".colhead");
     if (!h) return null;
     return COLS[Array.prototype.indexOf.call(h.parentNode.children, h)];
   }
+  // ---- drag-to-scroll anywhere on the pill row (Tim, 2026-07-21) ----
+  // Touch is left to the browser: `touch-action: pan-x` gives native momentum
+  // panning, which beats anything reimplemented here. This handles mouse/pen, so
+  // "drag anywhere on the row" holds for every input type. A drag that actually
+  // moved swallows the click it generates, so dragging never switches columns.
+  var SEG_DRAG = null, SEG_ATE_CLICK = false;
+  var SEG_SLOP = 4;                            // px before a press becomes a drag
+  document.querySelector(".cols").addEventListener("pointerdown", function (ev) {
+    if (!IS_MOBILE || ev.pointerType === "touch" || ev.button) return;
+    var cols = this;
+    if (cols.scrollWidth <= cols.clientWidth) return;         // nothing to scroll
+    SEG_DRAG = { id: ev.pointerId, x: ev.clientX, sl: cols.scrollLeft, moved: false };
+  });
+  document.querySelector(".cols").addEventListener("pointermove", function (ev) {
+    if (!SEG_DRAG || ev.pointerId !== SEG_DRAG.id) return;
+    var dx = ev.clientX - SEG_DRAG.x;
+    if (!SEG_DRAG.moved) {
+      if (Math.abs(dx) < SEG_SLOP) return;
+      SEG_DRAG.moved = true;
+      this.classList.add("mdragging");
+      try { this.setPointerCapture(SEG_DRAG.id); } catch (e) {}
+    }
+    this.scrollLeft = SEG_DRAG.sl - dx;
+    ev.preventDefault();
+  });
+  function mSegDragEnd(ev) {
+    if (!SEG_DRAG || (ev && ev.pointerId !== SEG_DRAG.id)) return;
+    var cols = document.querySelector(".cols");
+    if (SEG_DRAG.moved) {
+      SEG_ATE_CLICK = true;                    // consumed by the click handler below
+      cols.classList.remove("mdragging");
+      try { cols.releasePointerCapture(SEG_DRAG.id); } catch (e) {}
+    }
+    SEG_DRAG = null;
+  }
+  document.querySelector(".cols").addEventListener("pointerup", mSegDragEnd);
+  document.querySelector(".cols").addEventListener("pointercancel", mSegDragEnd);
+
   document.querySelector(".cols").addEventListener("click", function (ev) {
     if (!IS_MOBILE) return;                    // desktop heads stay inert labels
+    if (SEG_ATE_CLICK) { SEG_ATE_CLICK = false; return; }     // that was a drag, not a tap
     var col = mSegFrom(ev); if (col) mSegPick(col);
   });
   document.querySelector(".cols").addEventListener("keydown", function (ev) {
