@@ -484,7 +484,13 @@
   /* .mseg-count is OP-086's one added node; it lives INSIDE .cols deliberately (see
      the OP-086 section in the media query below) and is display:none here, so it is
      not a grid item and the desktop 5-column .cols grid is untouched. */
-  .mtitle, .mscrim, .msheet, .mbar, .mseg-count { display: none; }
+  /* .mstatuspill is OP-087's one added node — a per-card status control that exists
+     ONLY below the breakpoint. W-01 (Tim-ratified 2026-06-11) removed inline status
+     dropdowns from desktop Kanban cards and made board-side change drag-only; that
+     ruling stands on desktop, and this pill is display:none there, so the desktop card
+     is byte-identical. EP-031's 2026-07-20 touch-move decision scopes the exception to
+     mobile, where drag is not a usable gesture. */
+  .mtitle, .mscrim, .msheet, .mbar, .mseg-count, .mstatuspill { display: none; }
 
   @media (max-width: 760px) {
     :root { --mbar-h: 56px; }
@@ -535,14 +541,15 @@
     /* ---- one scrim for the drawer and both sheets ---- */
     .mscrim { display: block; position: fixed; inset: 0; background: rgba(4, 6, 10, .55);
       z-index: 36; opacity: 0; pointer-events: none; transition: opacity .18s ease; }
-    body.mnav-open .mscrim, body.msheet-open .mscrim, body.mmore-open .mscrim { opacity: 1; pointer-events: auto; }
+    body.mnav-open .mscrim, body.msheet-open .mscrim, body.mmore-open .mscrim,
+    body.mmove-open .mscrim { opacity: 1; pointer-events: auto; }
 
     /* ---- bottom sheets (filters, More) — wireframe 1a sheet language ---- */
     .msheet { display: flex; flex-direction: column; position: fixed; left: 0; right: 0; bottom: 0;
       z-index: 39; max-height: 80vh; background: var(--bg); border-top: 1px solid var(--line);
       border-radius: 20px 20px 0 0; box-shadow: 0 -14px 40px #000a;
       transform: translateY(101%); transition: transform .22s ease; }
-    body.msheet-open #msheet, body.mmore-open #mmore { transform: translateY(0); }
+    body.msheet-open #msheet, body.mmore-open #mmore, body.mmove-open #mmove { transform: translateY(0); }
     .msheet .mgrip { position: absolute; top: 7px; left: 50%; transform: translateX(-50%);
       width: 38px; height: 4px; border-radius: 2px; background: var(--line); }
     .msheet-hd { display: flex; align-items: center; gap: 10px; padding: 17px 16px 10px; border-bottom: 1px solid var(--line); }
@@ -680,6 +687,70 @@
     /* full card anatomy survives a 390px screen (AC-2): the title wraps rather than
        truncating, and the foot's badges / AC pips / rollup wrap with it. */
     .pcard .ttl { text-wrap: pretty; }
+
+    /* ==========================================================================
+       OP-087 (EP-031) — TOUCH-MOVE: per-card status pill -> bottom-sheet of targets.
+       Deliberately inside OP-085's media query — ONE breakpoint (760px) for all of
+       EP-031, never a second value.
+
+       This is an INPUT affordance only. Picking a target calls the SAME applyChange()
+       the desktop drawer's <select> calls, so the confirm-before-write modal, the green
+       commit toast, and OP-079's stale-SHA (409) refetch-retry are all reused verbatim —
+       there is no second write path to drift.
+
+       NOT the OP-086 segmented picker: that is the row of five .colhead pills at the
+       top of the board and selects which COLUMN IS IN VIEW. This pill lives on an
+       individual .pcard and changes THAT CARD'S STATUS.
+
+       Visual contract: wireframe screen 1a — the card foot's trailing "Backlog ▾"
+       button ({{ c.statusShort }} ▾), and its "Why this one" note: "the status pill on
+       every card → bottom-sheet of targets → commit confirm toast + ref".
+       ========================================================================== */
+
+    /* ---- the pill: last item in the EXISTING .foot row, so it wraps with the
+       badges / AC pips / child-rollup already there (no new card row) ---- */
+    .mstatuspill {
+      display: inline-flex; align-items: center; gap: 4px; margin-left: auto;
+      position: relative;                       /* anchors the hit-area expander below */
+      min-height: 26px; padding: 3px 8px; border-radius: 7px;
+      border: 1px solid var(--line); background: var(--panel2); color: var(--ink-dim);
+      font: 600 10.5px system-ui, -apple-system, sans-serif; white-space: nowrap;
+      cursor: pointer;
+    }
+    /* The pill reads small by design (it sits in a dense card foot), but a 26px tap
+       target misses on a phone. This expands the TOUCH area to the 44px minimum the
+       bottom bar already uses, without changing the pill's drawn size or the foot's
+       layout — the overlay is transparent and its ancestor is not a positioning or
+       overflow context, so nothing shifts. */
+    .mstatuspill::after { content: ""; position: absolute; inset: -9px -6px; }
+    .mstatuspill:hover { border-color: var(--accent); }
+    .mstatuspill .mcar { color: var(--ink-faint); font-size: 9px; }
+    /* .pcard sets cursor:pointer for the open-detail click; the pill is its own target */
+    .pcard .mstatuspill { cursor: pointer; }
+
+    /* ---- the move sheet: the EXISTING .msheet chrome (grip, header, Done button,
+       scrim, slide transform) — only the option rows are new ---- */
+    #mmove-cur { margin: 2px 2px 12px; font: 400 11.5px/1.5 system-ui, -apple-system, sans-serif; color: var(--ink-faint); }
+    #mmove-cur b { color: var(--ink-dim); font-weight: 700; }
+    .mmove-opt {
+      display: flex; align-items: center; gap: 10px; width: 100%; text-align: left;
+      margin-top: 8px; padding: 13px 14px; border-radius: 10px;
+      border: 1px solid var(--line); background: var(--panel2); color: var(--ink);
+      font: 600 13px system-ui, -apple-system, sans-serif; cursor: pointer;
+    }
+    .mmove-opt .mmove-dot { flex: none; width: 9px; height: 9px; border-radius: 50%; background: var(--line); }
+    .mmove-opt .mmove-why { margin-left: auto; font: 400 10.5px system-ui, -apple-system, sans-serif; color: var(--ink-faint); }
+    /* the card's CURRENT status is shown for orientation but is not a move target */
+    .mmove-opt.cur { border-style: dashed; color: var(--ink-dim); cursor: default; }
+    .mmove-opt.cur .mmove-dot { background: var(--accent); }
+    /* a status with no token in this file's vocabulary cannot be written (§A.3.2) —
+       same gate statusSelectEl applies to the desktop dropdown's <option disabled>. */
+    .mmove-opt[disabled] { opacity: .45; cursor: not-allowed; }
+    .mmove-opt[disabled]:hover { border-color: var(--line); }
+    /* ...but the CURRENT row is disabled for a different reason — it is orientation,
+       not a refusal — so it must not read as forbidden. Listed last, and with the
+       extra [disabled] specificity, so it wins over the rule above. */
+    .mmove-opt.cur[disabled] { opacity: 1; cursor: default; }
   }
 </style>
 </head>
@@ -903,6 +974,19 @@
     <div id="mmore-view"></div>
     <button class="mmore-act" id="mmore-reload">Reload</button>
     <button class="mmore-act" id="mmore-forget">Forget token</button>
+  </div>
+</div>
+
+<!-- Move sheet (OP-087) — opened by an individual card's .mstatuspill; lists that
+     card's target statuses. Picking one calls the SAME applyChange() the desktop
+     drawer's <select> calls, so the confirm modal, the commit toast and OP-079's
+     409 recovery are reused, not reimplemented. Wireframe screen 1a. -->
+<div class="msheet" id="mmove" role="dialog" aria-modal="true" aria-labelledby="mmove-hd">
+  <span class="mgrip"></span>
+  <div class="msheet-hd"><h4 id="mmove-hd">Move</h4><button class="msheet-done" id="mmove-done">Cancel</button></div>
+  <div class="msheet-body">
+    <div id="mmove-cur"></div>
+    <div id="mmove-list"></div>
   </div>
 </div>
 
@@ -2042,17 +2126,30 @@
 
   // Shared write controls — used on cards AND in the detail drawer. They carry
   // data-path/data-id and class hooks; delegated change handlers do the flip.
+  // Which statuses a card can be moved to, and why one can't be. PURE + DOM-free, so
+  // the desktop <select> (statusSelectEl) and the mobile move sheet (OP-087's
+  // mMoveRender) are built from the SAME list — they cannot drift into offering
+  // different targets — and tools/movecheck.mjs drives this exact shipped function.
+  //   writable=false => no token for that status in this file's vocabulary (§A.3.2),
+  //   so the engine must never write it: <option disabled> / a disabled sheet row.
+  function statusTargets(voc, current) {
+    if (!voc) return [];
+    var opts = voc.order.slice();
+    if (opts.indexOf(current) < 0) opts.unshift(current); // show current even if not a write target
+    return opts.map(function (col) {
+      return { col: col, current: col === current, writable: !!voc.token[col] };
+    });
+  }
+
   function statusSelectEl(c) {
     var voc = VOCABS[c.vocab];
     if (!voc || !c.statusRange) return null;
     var sel = el("select", "statussel");
     sel.setAttribute("data-path", c.filePath); sel.setAttribute("data-id", c.id);
-    var opts = voc.order.slice();
-    if (opts.indexOf(c.status) < 0) opts.unshift(c.status); // show current even if not a write target
-    opts.forEach(function (col) {
-      var o = el("option", null, col); o.value = col;
-      if (col === c.status) o.selected = true;
-      if (!voc.token[col]) o.disabled = true; // not representable in this file's vocab
+    statusTargets(voc, c.status).forEach(function (t) {
+      var o = el("option", null, t.col); o.value = t.col;
+      if (t.current) o.selected = true;
+      if (!t.writable) o.disabled = true; // not representable in this file's vocab
       sel.appendChild(o);
     });
     return sel;
@@ -2107,6 +2204,11 @@
       c.criteria.forEach(function (a) { pips.appendChild(el("span", "acpip " + a.state)); });
       foot.appendChild(pips);
     }
+    // OP-087 — touch-move affordance: the card's own status control, LAST in the foot
+    // row per wireframe 1a. display:none above the breakpoint, so the desktop card is
+    // unchanged and W-01's "no inline dropdowns on Kanban cards" still holds there.
+    // Only status-writable cards get one — the same gate drag-to-move already uses.
+    if (c.statusRange && VOCABS[c.vocab]) foot.appendChild(mStatusPillEl(c));
     card.appendChild(foot);
     // Derived rollup hint (punch-list 5): mismatch with stored status is informational.
     if (roll && roll.derived) {
@@ -2971,7 +3073,8 @@
     // OP-085 — an open mobile drawer/sheet takes Esc first. These classes only ever
     // exist below the breakpoint, so this falls straight through on desktop.
     var mb = document.body.classList;
-    if (mb.contains("mnav-open") || mb.contains("msheet-open") || mb.contains("mmore-open")) { e.preventDefault(); mClose(); return; }
+    if (mb.contains("mnav-open") || mb.contains("msheet-open") || mb.contains("mmore-open")
+      || mb.contains("mmove-open")) { e.preventDefault(); mClose(); return; }
     // Let the confirm dialog / intake wizard own Esc while either is open.
     if (!$("modal-bg").classList.contains("hidden")) return;
     if (!$("wiz-bg").classList.contains("hidden")) return;
@@ -4019,10 +4122,13 @@
   function mSetContext() {
     var c = $("m-context"); if (c) c.textContent = SURFACE_LABEL[ACTIVE_SURFACE] || "Portfolio board";
   }
-  function mClose() { document.body.classList.remove("mnav-open", "msheet-open", "mmore-open"); mSyncBtns(); }
+  // "mmove-open" is OP-087's card-move sheet — it shares the scrim, the Esc branch and
+  // this close path with the other two, so it can never be left open behind them.
+  function mClose() { MMOVE = null; document.body.classList.remove("mnav-open", "msheet-open", "mmore-open", "mmove-open"); mSyncBtns(); }
   function mToggle(cls) {
     var wasOpen = document.body.classList.contains(cls);
-    document.body.classList.remove("mnav-open", "msheet-open", "mmore-open");
+    MMOVE = null;
+    document.body.classList.remove("mnav-open", "msheet-open", "mmore-open", "mmove-open");
     if (!wasOpen) document.body.classList.add(cls);
     mSyncBtns();
   }
@@ -4180,6 +4286,82 @@
     var col = mSegFrom(ev); if (!col) return;
     ev.preventDefault(); mSegPick(col);
   });
+
+  // ---- OP-087 (EP-031) — touch-move: per-card status pill -> bottom-sheet ----
+  // On a phone, dragging a card across columns is imprecise, so the locked interaction
+  // (design decision 2026-07-20, wireframe 1a) is: tap the card's own status pill ->
+  // bottom-sheet of target statuses -> pick one -> the EXISTING confirm-before-write
+  // flow -> the EXISTING green commit toast with its ref.
+  //
+  // REUSE, DON'T FORK — this file adds an INPUT affordance and nothing else:
+  //   * targets come from statusTargets(), the same list the desktop <select> is built
+  //     from, so the two surfaces can never offer different moves;
+  //   * picking one calls applyChange(path, id, "status", target, null) — the SAME
+  //     entry point the delegated `change` handler calls for the drawer's <select>;
+  //   * applyChange runs confirmModal() and then doWrite() -> commitWithRecovery(),
+  //     so OP-079's stale-SHA (409) refetch-retry and its calm sync states are on this
+  //     path by construction (AC-2), not by re-implementation;
+  //   * selEl is null, exactly as the drag-to-drop and re-apply call sites pass it —
+  //     there is no <select> to roll back, and the card re-renders from the model.
+  //
+  // Like the rest of the shell it is inert on desktop: the pill is display:none above
+  // the breakpoint and mMoveOpen() no-ops unless IS_MOBILE (AC-3).
+  var MSTATUS_SHORT = { "In Progress": "In Prog", "In Review": "In Rev" };
+  var MMOVE = null;                          // the card whose sheet is open
+
+  function mStatusPillEl(c) {
+    var b = el("button", "mstatuspill", MSTATUS_SHORT[c.status] || c.status);
+    b.type = "button";
+    b.setAttribute("aria-label", "Move " + c.id + " — status " + c.status);
+    b.setAttribute("aria-haspopup", "dialog");
+    b.appendChild(el("span", "mcar", "▾"));
+    // the card itself opens the detail on click; the pill is a different action
+    b.addEventListener("click", function (ev) { ev.stopPropagation(); mMoveOpen(c); });
+    return b;
+  }
+
+  function mMoveOpen(c) {
+    if (!IS_MOBILE) return;                  // desktop pills don't exist; belt-and-braces
+    var voc = VOCABS[c.vocab];
+    if (!voc || !c.statusRange) return;
+    MMOVE = { path: c.filePath, id: c.id, from: c.status, project: c.project };
+    $("mmove-hd").textContent = "Move " + c.id;
+    var cur = $("mmove-cur"); cur.innerHTML = "";
+    cur.appendChild(document.createTextNode("Now in "));
+    cur.appendChild(el("b", null, c.status));
+    cur.appendChild(document.createTextNode(" — pick where it goes. You'll confirm the commit before anything is written."));
+
+    var list = $("mmove-list"); list.innerHTML = "";
+    statusTargets(voc, c.status).forEach(function (t) {
+      var row = el("button", "mmove-opt" + (t.current ? " cur" : ""));
+      row.type = "button";
+      row.appendChild(el("span", "mmove-dot"));
+      row.appendChild(document.createTextNode(t.col));
+      if (t.current) row.appendChild(el("span", "mmove-why", "current"));
+      else if (!t.writable) {
+        // §A.3.2: no token for this status in this file's vocabulary — never writable.
+        row.appendChild(el("span", "mmove-why", "not in " + c.projTag + "'s vocabulary"));
+      }
+      if (t.current || !t.writable) { row.disabled = true; }
+      else { row.addEventListener("click", function () { mMovePick(t.col); }); }
+      list.appendChild(row);
+    });
+
+    document.body.classList.remove("mnav-open", "msheet-open", "mmore-open");
+    document.body.classList.add("mmove-open");
+    mSyncBtns();
+  }
+
+  function mMoveClose() { MMOVE = null; document.body.classList.remove("mmove-open"); }
+
+  function mMovePick(target) {
+    var m = MMOVE;
+    if (!m) return;
+    mMoveClose();                            // the sheet is the picker; the modal confirms
+    applyChange(m.path, m.id, "status", target, null);
+  }
+
+  $("mmove-done").addEventListener("click", mMoveClose);
 
   function applyShell() {
     if (MQ_MOBILE.matches === IS_MOBILE) return;          // no crossing -> no mutation
