@@ -481,7 +481,10 @@
      ================================================================================ */
 
   /* --- inert above the breakpoint (this is what guarantees AC-2) --- */
-  .mtitle, .mscrim, .msheet, .mbar { display: none; }
+  /* .mseg-count is OP-086's one added node; it lives INSIDE .cols deliberately (see
+     the OP-086 section in the media query below) and is display:none here, so it is
+     not a grid item and the desktop 5-column .cols grid is untouched. */
+  .mtitle, .mscrim, .msheet, .mbar, .mseg-count { display: none; }
 
   @media (max-width: 760px) {
     :root { --mbar-h: 56px; }
@@ -596,6 +599,77 @@
     /* filters only govern the board, so the Filter action rests off-board (parity with
        the desktop `.board-only` filters row). data-surf is stamped by applyAppClass. */
     body:not([data-surf="board"]) #mbtn-filter { opacity: .3; pointer-events: none; }
+
+    /* ==========================================================================
+       OP-086 (EP-031) — RESPONSIVE BOARD: segmented status picker + vertical
+       swimlanes.  Deliberately inside OP-085's media query — ONE breakpoint
+       (760px) for all of EP-031, never a second value.
+
+       This is a LAYOUT change, not a data-path fork: render() still builds the
+       same .cols head row and the same five .lanecell children per .lane, in COLS
+       order.  Below the breakpoint the five column heads become tappable pills and
+       `body[data-mcol=N]` reveals the Nth cell of every lane — so the Epic / Bet /
+       Maintenance-Loop swimlanes (already stacked blocks on desktop) simply stack
+       vertically inside whichever column is active.
+
+       DEVIATION FROM WIREFRAME 1a, deliberate: the mock scrolls the pill row
+       horizontally (overflow-x:auto).  AC-1 requires all five counts to be
+       *always visible*, and five pills do not fit 390px — so the row WRAPS
+       instead.  Scrolling would push Done off-screen and fail the AC.
+       Visual contract otherwise per wireframe screen 1a.
+       ========================================================================== */
+
+    /* ---- the picker: the EXISTING .cols row, re-laid-out as pills ---- */
+    .cols {
+      display: flex; flex-wrap: wrap; gap: 6px;
+      margin: 0 -16px; padding: 9px 10px 0;      /* full-bleed to the .board padding */
+      border-bottom: 1px solid var(--line);
+    }
+    .colhead {
+      display: flex; align-items: center; gap: 6px; flex: none;
+      min-height: 32px; padding: 6px 10px; border-radius: 9px;
+      border: 1px solid var(--line); background: var(--panel2); color: var(--ink-dim);
+      font: 600 11px system-ui, -apple-system, sans-serif;
+      text-transform: none; letter-spacing: 0; white-space: nowrap; cursor: pointer;
+    }
+    .colhead .cnt {
+      background: var(--line); color: var(--ink-faint); border-radius: 4px;
+      padding: 1px 5px; font: 700 9px ui-monospace, Menlo, Consolas, monospace;
+    }
+    /* the WIP text would blow the pill's width — it moves to the count line below. */
+    .colhead .wip { display: none; }
+    .colhead.mactive { background: var(--accent-dim); border-color: var(--accent-dim); color: #fff; }
+    .colhead.mactive .cnt { background: rgba(255, 255, 255, .22); color: #fff; }
+
+    /* ---- count line — wraps onto its own row as the picker's last flex item ----
+       order:9 keeps it last even though the pills carry no explicit order. */
+    .mseg-count {
+      display: block; width: 100%; order: 9; margin: 9px -10px 0; padding: 6px 14px;
+      border-top: 1px solid var(--line);
+      font: 400 10px system-ui, -apple-system, sans-serif; color: var(--ink-faint);
+    }
+    .mseg-count b { color: var(--ink-dim); font-weight: 700; }
+
+    /* ---- one column at a time; swimlanes stack vertically inside it ---- */
+    .lane { grid-template-columns: 1fr; }
+    .lane > .lanecell { display: none; }
+    body[data-mcol="1"] .lane > .lanecell:nth-child(1),
+    body[data-mcol="2"] .lane > .lanecell:nth-child(2),
+    body[data-mcol="3"] .lane > .lanecell:nth-child(3),
+    body[data-mcol="4"] .lane > .lanecell:nth-child(4),
+    body[data-mcol="5"] .lane > .lanecell:nth-child(5) { display: block; }
+
+    /* swimlane sub-headers per wireframe 1a: small, faint, with a trailing rule. */
+    .swim > .swimhd {
+      font: 700 9.5px system-ui, -apple-system, sans-serif; letter-spacing: .7px;
+      color: var(--ink-faint); margin: 13px 0 7px;
+    }
+    .swim > .swimhd .tag { font: 600 9.5px system-ui, -apple-system, sans-serif; }
+    .swim > .swimhd::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+
+    /* full card anatomy survives a 390px screen (AC-2): the title wraps rather than
+       truncating, and the foot's badges / AC pips / rollup wrap with it. */
+    .pcard .ttl { text-wrap: pretty; }
   }
 </style>
 </head>
@@ -689,6 +763,11 @@
       <div class="colhead">In Progress <span class="cnt" id="c-inprogress">0</span><span class="wip">WIP limit: 3</span></div>
       <div class="colhead">In Review <span class="cnt" id="c-inreview">0</span></div>
       <div class="colhead">Done <span class="cnt" id="c-done">0</span><span class="wip" id="done-wip">this session</span></div>
+      <!-- OP-086 — mobile count line ("N items · <column> · WIP…", wireframe 1a).
+           Deliberately the 6th child of .cols: display:none above the breakpoint means
+           it is not a grid item, so the desktop 5-column head row is untouched, and the
+           five .colhead siblings keep their indices. -->
+      <div class="mseg-count" id="mseg-count"></div>
     </div>
     <div id="swimlanes"></div>
     <div class="handle-view hidden" id="handle-view"></div>
@@ -1914,8 +1993,10 @@
       host.appendChild(box);
     });
 
-    // column count chips
+    // column count chips (below the OP-086 breakpoint these same spans are the
+    // segmented picker's count badges, so the mobile count line re-reads them here)
     COLS.forEach(function (col) { $(COLID[col]).textContent = counts[col]; });
+    mSegCount();
 
     // off-axis Blocked / Cancelled (§A.3.1)
     var offBlocked = top.filter(function (c) { return c.status === "Blocked"; });
@@ -2912,6 +2993,8 @@
     HANDLE_CATALOG.forEach(function (h) { var o = el("option", null, h.id + " — " + h.title); o.value = h.id; sel.appendChild(o); });
   }
   function showHandleMode(on) {
+    // .cols carries OP-086's count line as its 6th child, so hiding the head row
+    // takes the mobile picker and its count line away together.
     document.querySelector(".cols").classList.toggle("hidden", on);
     $("swimlanes").classList.toggle("hidden", on);
     $("offaxis").classList.toggle("hidden", on);
@@ -3954,11 +4037,87 @@
       if (hsel) row1.insertBefore(hsel, $("new-btn"));
     }
   }
+  // ---- OP-086 (EP-031) — segmented status picker + vertical swimlanes ----
+  // Layout only: render() is untouched and still emits five .lanecell children per
+  // .lane in COLS order. All this does is mark WHICH column is active; the CSS in the
+  // OP-086 block reveals that cell in every lane and hides the other four, so the
+  // swimlanes stack vertically inside it. Like the rest of the shell it is inert on
+  // desktop — every function here no-ops unless IS_MOBILE, so a desktop-width load
+  // never stamps an attribute or a class (that is what keeps AC-3 honest).
+  var MCOL_KEY = "plexus_mcol";
+  var MCOL = "In Progress";                   // the WIP-limited column: what a phone check is usually for
+  try { var _mc = localStorage.getItem(MCOL_KEY); if (COLS.indexOf(_mc) >= 0) MCOL = _mc; } catch (e) {}
+
+  function mSegHeads() { return document.querySelectorAll(".cols .colhead"); }
+  // The count line reads the SAME numbers the pills show (render() writes them into
+  // the .cnt spans), so the picker can never disagree with the board beneath it.
+  function mSegCount() {
+    if (!IS_MOBILE) return;
+    var box = $("mseg-count"); if (!box) return;
+    var head = mSegHeads()[COLS.indexOf(MCOL)];
+    var cnt = head && head.querySelector(".cnt"), wip = head && head.querySelector(".wip");
+    box.innerHTML = "";
+    box.appendChild(el("b", null, cnt ? cnt.textContent : "0"));
+    box.appendChild(document.createTextNode(
+      " items · " + MCOL + (wip && wip.textContent ? " · " + wip.textContent : "")));
+  }
+  function mSegApply() {
+    if (!IS_MOBILE) return;
+    document.body.setAttribute("data-mcol", String(COLS.indexOf(MCOL) + 1));
+    var heads = mSegHeads();
+    for (var i = 0; i < heads.length; i++) {
+      var on = COLS[i] === MCOL;
+      heads[i].classList.toggle("mactive", on);
+      heads[i].setAttribute("aria-pressed", on ? "true" : "false");
+    }
+    mSegCount();
+  }
+  function mSegPick(col) {
+    if (COLS.indexOf(col) < 0 || col === MCOL) return;
+    MCOL = col;
+    try { localStorage.setItem(MCOL_KEY, col); } catch (e) {}
+    mSegApply();
+    $("surface-board").scrollTop = 0;          // a new column starts at its first swimlane
+  }
+  // Symmetric with mRelocate: everything stamped on the way down is stripped on the
+  // way up, so crossing back to desktop leaves the DOM exactly as it loaded.
+  function mSegShell(toMobile) {
+    var heads = mSegHeads();
+    for (var i = 0; i < heads.length; i++) {
+      if (toMobile) {
+        heads[i].setAttribute("role", "button");
+        heads[i].setAttribute("tabindex", "0");
+      } else {
+        heads[i].removeAttribute("role");
+        heads[i].removeAttribute("tabindex");
+        heads[i].removeAttribute("aria-pressed");
+        heads[i].classList.remove("mactive");
+      }
+    }
+    if (!toMobile) { document.body.removeAttribute("data-mcol"); $("mseg-count").innerHTML = ""; }
+  }
+  function mSegFrom(ev) {
+    var h = ev.target && ev.target.closest && ev.target.closest(".colhead");
+    if (!h) return null;
+    return COLS[Array.prototype.indexOf.call(h.parentNode.children, h)];
+  }
+  document.querySelector(".cols").addEventListener("click", function (ev) {
+    if (!IS_MOBILE) return;                    // desktop heads stay inert labels
+    var col = mSegFrom(ev); if (col) mSegPick(col);
+  });
+  document.querySelector(".cols").addEventListener("keydown", function (ev) {
+    if (!IS_MOBILE || (ev.key !== "Enter" && ev.key !== " ")) return;
+    var col = mSegFrom(ev); if (!col) return;
+    ev.preventDefault(); mSegPick(col);
+  });
+
   function applyShell() {
     if (MQ_MOBILE.matches === IS_MOBILE) return;          // no crossing -> no mutation
     IS_MOBILE = MQ_MOBILE.matches;
     document.body.classList.toggle("mobile", IS_MOBILE);
     mRelocate(IS_MOBILE);
+    mSegShell(IS_MOBILE);
+    mSegApply();
     mClose();
     mSetContext();
   }
