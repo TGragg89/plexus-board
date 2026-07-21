@@ -490,7 +490,14 @@
      ruling stands on desktop, and this pill is display:none there, so the desktop card
      is byte-identical. EP-031's 2026-07-20 touch-move decision scopes the exception to
      mobile, where drag is not a usable gesture. */
-  .mtitle, .mscrim, .msheet, .mbar, .mseg-count, .mstatuspill { display: none; }
+  /* OP-088's added nodes — the sheet's back button + header chips, the mobile-only
+     caption, the AC disclosure carets and the link Copy buttons. Every one is a
+     control or a caption that only has meaning in the full-screen sheet; all are
+     display:none here, so a desktop drawer/modal render is byte-identical (AC-3).
+     detailContent()/renderAcChecklist()/linkRow() emit them unconditionally — the
+     same "render always, reveal below the breakpoint" rule .mstatuspill follows. */
+  .mtitle, .mscrim, .msheet, .mbar, .mseg-count, .mstatuspill,
+  .mdet-back, .mdet-chips, .mdet-cap, .mac-disc, .mcopy { display: none; }
 
   @media (max-width: 760px) {
     :root { --mbar-h: 56px; }
@@ -751,6 +758,130 @@
        not a refusal — so it must not read as forbidden. Listed last, and with the
        extra [disabled] specificity, so it wins over the rule above. */
     .mmove-opt.cur[disabled] { opacity: 1; cursor: default; }
+
+    /* ==========================================================================
+       OP-088 (EP-031) — CARD-DETAIL FULL-SCREEN SHEET.
+       Deliberately inside OP-085's media query — ONE breakpoint (760px) for all of
+       EP-031, never a second value.
+
+       This is a LAYOUT change, not a second detail renderer. renderDrawer() +
+       detailContent() stay the single source of the sheet's content: every
+       key/value row, the acceptance-criteria checklist with its per-criterion notes
+       and linked refs, the child list and the Links section already exist and are
+       already emitted. All this does is (a) blow the right-hand drawer up to the
+       full viewport, (b) dissolve the OP-084 rail so the two-column detail becomes
+       one stacked column with the key/value grid hoisted to the top, and (c) reveal
+       the handful of inert controls the sheet needs (back, header chips, the AC
+       disclosure caret, link Copy).
+
+       The sheet is ALWAYS the drawer container below the breakpoint: detailMode()
+       pins "drawer" here regardless of the persisted plexus_detailmode, so a user
+       who left the desktop in modal mode does not land on a 95vw centred panel on a
+       phone — and because it pins the *derived* mode rather than overwriting
+       DETAIL_MODE, their desktop preference survives the trip (the exact failure
+       OP-085 hit with the persisted navhidden nav collapse).
+
+       Visual contract: wireframe screen 3a "Card detail sheet — EP-012".
+       ========================================================================== */
+
+    /* ---- the sheet: the EXISTING #drawer, blown up to the full viewport ---- */
+    /* .drawer is already `position:fixed; top/right/bottom:0` and already a flex
+       column — pinning left:0 and dropping the width cap is the whole of "full
+       screen". Nothing else about the container changes. */
+    .drawer { left: 0; width: auto; max-width: none; border-left: none; box-shadow: none; }
+    /* full-screen means there is nothing behind the sheet to dim or to click past */
+    .drawer-bg { display: none; }
+    .drawer-body { flex: 1; padding: 14px 13px calc(var(--mbar-h) + 24px); }
+
+    /* ---- sticky header: ‹ back · ID · title · ✕ close, with the chips beneath ---- */
+    /* scoped to .drawer throughout — .drawer-hd / .drawer-close / .modebtn are shared
+       with the OP-084 modal, which is never the presentation below the breakpoint. */
+    .drawer > .drawer-hd {
+      position: sticky; top: 0; z-index: 2; flex: none; flex-wrap: wrap;
+      align-items: center; gap: 9px; padding: 12px 12px 10px;
+    }
+    .drawer .mdet-back {
+      display: inline-flex; align-items: center; justify-content: center; flex: none;
+      width: 32px; height: 32px; padding: 0; border-radius: 8px;
+      border: 1px solid var(--line); background: var(--panel2); color: var(--ink-dim);
+      font: 400 19px/1 system-ui, -apple-system, sans-serif; cursor: pointer;
+    }
+    .drawer > .drawer-hd h2 { flex: 1; min-width: 0; font-size: 13px;
+      display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+    .drawer > .drawer-hd .drawer-close { flex: none; width: 32px; height: 32px; border-radius: 8px;
+      border: 1px solid var(--line); background: var(--panel2); font-size: 17px; }
+    /* OP-084's dock⇄modal toggle is desktop-only (wireframe 3a states it outright):
+       below the breakpoint the sheet is the only presentation, so the control has
+       nothing to switch to. */
+    .drawer > .drawer-hd .modebtn { display: none; }
+    /* project + status chips — the wireframe's header context line */
+    .drawer .mdet-chips { display: flex; flex-basis: 100%; align-items: center; gap: 6px; flex-wrap: wrap; }
+    .drawer .mdet-chip {
+      font: 600 9.5px system-ui, -apple-system, sans-serif; padding: 3px 7px; border-radius: 5px;
+      background: var(--panel); border: 1px solid var(--line); color: var(--ink-dim); white-space: nowrap;
+    }
+    .drawer .mdet-chip.proj { color: var(--accent); border-color: var(--accent-dim); }
+
+    /* ---- one stacked column (AC-1) ----
+       The rail dissolves with display:contents, so its children (the key/value grid,
+       Cycle, Links) become siblings of .detail-main inside the flex column instead of
+       a boxed sidebar. That is what turns OP-084's two-column modal / drawer-with-a-
+       rail into the wireframe's single scroll — and it needs no change to the render,
+       because `order` can then hoist the caption and the key/value grid above the
+       main content without either of them moving in the DOM. */
+    .drawer .detail { display: flex; flex-direction: column; }
+    .drawer .detail .rail {
+      display: contents; background: none; border: none; border-radius: 0; padding: 0; margin-top: 0;
+    }
+    .drawer .detail .mdet-cap {
+      display: block; order: -3; margin: 0 0 13px;
+      font: 400 10px system-ui, -apple-system, sans-serif; color: var(--ink-faint);
+    }
+    .drawer .detail .kv {
+      order: -2; grid-template-columns: 78px 1fr; gap: 9px 10px; margin-bottom: 6px; font-size: 12px;
+    }
+    .drawer .detail .kv select { padding: 5px 7px; font-size: 12px; min-height: 32px; }
+    .drawer .detail .parentlink { padding: 5px 9px; }   /* tap target for navigate-up */
+
+    /* ---- acceptance criteria: coloured left border + a ▸ that expands the row
+       to its note and linked refs (wireframe 3a's disclosure) ---- */
+    .ac-item { border-left-width: 3px; }
+    .ac-item.red { border-left-color: var(--bad); }
+    .ac-item.yellow { border-left-color: var(--warn); }
+    .ac-item.green { border-left-color: var(--ok); }
+    .ac-row { align-items: center; padding: 10px 11px; }
+    .ac-right { flex-direction: row; align-items: center; gap: 6px; }
+    .ac-updated { display: none; }                      /* the state label carries the row */
+    .mac-disc {
+      display: inline-flex; align-items: center; justify-content: center; flex: none;
+      position: relative; width: 24px; height: 24px; padding: 0;
+      border: none; background: none; color: var(--ink-faint); font-size: 12px;
+      transition: transform .15s ease; cursor: pointer;
+    }
+    .mac-disc::after { content: ""; position: absolute; inset: -10px; }  /* 44px tap target */
+    .ac-item.macopen .mac-disc { transform: rotate(90deg); }
+    /* collapsed by default; the disclosure reveals whichever expandable region the
+       criterion has — its typed note + linked refs, or the add-note affordance. */
+    .ac-item .ac-note { display: none; padding-left: 38px; }
+    .ac-item .ac-addnote { display: none; }
+    .ac-item.macopen .ac-note { display: block; }
+    .ac-item.macopen .ac-addnote { display: inline-block; }
+
+    /* ---- child list: full-width tappable rows (navigate down) ---- */
+    .minik { padding: 0; overflow: hidden; }
+    .mrow { padding: 10px 11px; gap: 8px; align-items: center; }
+
+    /* ---- links & files: every row copyable ---- */
+    .drawer-body .linkrow { flex-wrap: nowrap; gap: 8px; padding: 9px 10px; margin: 6px 0;
+      background: var(--panel2); border: 1px solid var(--line); border-radius: 8px; }
+    .drawer-body .linkrow .pathlink { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .drawer-body .linkrow .gap-note { display: none; }   /* the Copy button IS the explanation */
+    .mcopy, .drawer-body .linkrow .copybtn {
+      display: inline-flex; align-items: center; flex: none; min-height: 30px;
+      padding: 5px 10px; border-radius: 6px; border: 1px solid var(--line);
+      background: var(--panel); color: var(--ink-dim);
+      font: 600 9.5px system-ui, -apple-system, sans-serif; cursor: pointer;
+    }
   }
 </style>
 </head>
@@ -880,9 +1011,14 @@
 <div class="drawer-bg hidden" id="drawer-bg"></div>
 <aside class="drawer hidden" id="drawer" role="dialog" aria-modal="true" aria-label="Card detail">
   <div class="drawer-hd">
+    <!-- OP-088 — the sheet's back control + context chips. Both are display:none above
+         the 760px breakpoint (see the OP-088 CSS), so the desktop drawer header is
+         byte-identical; below it they are the wireframe-3a sticky header. -->
+    <button class="mdet-back" id="mdet-back" title="Back">‹</button>
     <h2 id="drawer-title"></h2>
     <button class="modebtn" id="drawer-mode" title="Pop this detail out into a centered modal">⤢ Open as modal</button>
     <button class="drawer-close" id="drawer-close" title="Close (Esc)">×</button>
+    <div class="mdet-chips" id="mdet-chips"></div>
   </div>
   <div class="drawer-body"><div class="detail" id="drawer-detail"></div></div>
 </aside>
@@ -2636,30 +2772,58 @@
   // ===================== DETAIL DRAWER (punch-list 3 — §B.1.6 right-drawer) =====================
 
   var DRAWER_ID = null, DRAWER_PATH = null;
+  // OP-088 — the sheet's ‹ back stack. openDrawer() already REPLACES the detail when
+  // you tap a parent or a child (single drawer, never stacked), so the only thing
+  // missing for navigate-up/down on a phone was a record of where you came from.
+  // Inert on desktop: the ‹ button is display:none there, so this array is pushed and
+  // cleared but never read.
+  var DETAIL_BACK = [];
   // OP-084 — the detail opens in one of two containers (right-side drawer OR centered
   // modal). openDrawer/closeDrawer/renderDrawer keep their names so every existing
   // write-back call site ("if (DRAWER_ID) renderDrawer()") stays valid; they now act on
-  // whichever container DETAIL_MODE selects.
+  // whichever container detailMode() selects.
+  // OP-088 — below the breakpoint the full-screen sheet IS the drawer and is the only
+  // presentation, so the mode is DERIVED here rather than by overwriting DETAIL_MODE.
+  // That is deliberate: a persisted plexus_detailmode of "modal" must not leave a phone
+  // in a cramped 95vw centred panel, and equally must not be destroyed by the visit —
+  // resize back to desktop and the user's modal preference is still there. (The same
+  // class of bug OP-085 hit with the persisted navhidden nav collapse.)
+  function detailMode() { return IS_MOBILE ? "drawer" : DETAIL_MODE; }
   function showDetail() {
-    if (DETAIL_MODE === "modal") { $("detailmodal-bg").classList.remove("hidden"); }
+    if (detailMode() === "modal") { $("detailmodal-bg").classList.remove("hidden"); }
     else { $("drawer-bg").classList.remove("hidden"); $("drawer").classList.remove("hidden"); }
   }
-  function openDrawer(c) { DRAWER_ID = c.id; DRAWER_PATH = c.filePath; renderDrawer(); showDetail(); }
+  function openDrawer(c) {
+    if (DRAWER_ID && DRAWER_PATH && DRAWER_ID !== c.id) DETAIL_BACK.push({ id: DRAWER_ID, path: DRAWER_PATH });
+    DRAWER_ID = c.id; DRAWER_PATH = c.filePath; renderDrawer(); showDetail();
+  }
   function closeDrawer() {
-    DRAWER_ID = null; DRAWER_PATH = null;
+    DRAWER_ID = null; DRAWER_PATH = null; DETAIL_BACK.length = 0;
     $("drawer-bg").classList.add("hidden"); $("drawer").classList.add("hidden");
     $("detailmodal-bg").classList.add("hidden");
+  }
+  // OP-088 — ‹ : step back up the trail of parents/children walked in the sheet; at the
+  // root of the trail there is nowhere left to go, so it closes back to the board.
+  function detailBack() {
+    var prev = DETAIL_BACK.pop();
+    if (!prev) { closeDrawer(); return; }
+    DRAWER_ID = prev.id; DRAWER_PATH = prev.path;
+    renderDrawer(); showDetail();
+  }
+  // Re-present the SAME open card in whatever container is now correct — used both by
+  // the OP-084 dock⇄modal toggle and by an OP-088 breakpoint crossing.
+  function reopenDetail() {
+    if (!DRAWER_ID) return;
+    $("drawer-bg").classList.add("hidden"); $("drawer").classList.add("hidden");
+    $("detailmodal-bg").classList.add("hidden");
+    renderDrawer(); showDetail();
   }
   // Move the SAME detail (same card) between drawer and modal; persist the choice (AC-5).
   function setDetailMode(m) {
     if (m !== "drawer" && m !== "modal") return;
     DETAIL_MODE = m;
     try { localStorage.setItem(DMODE_KEY, m); } catch (e) {}
-    if (DRAWER_ID) {
-      $("drawer-bg").classList.add("hidden"); $("drawer").classList.add("hidden");
-      $("detailmodal-bg").classList.add("hidden");
-      renderDrawer(); showDetail();
-    }
+    reopenDetail();
   }
   function currentDrawerCard() {
     if (!DRAWER_ID || !DRAWER_PATH) return null;
@@ -2680,10 +2844,18 @@
     var c = currentDrawerCard();
     if (!c) { closeDrawer(); return; }
     buildChildMap(); // ensure rollup/children reflect the latest model
-    var modal = DETAIL_MODE === "modal";
+    var modal = detailMode() === "modal";
     var t = $(modal ? "dmodal-title" : "drawer-title"); t.innerHTML = "";
     t.appendChild(el("span", "did", c.id + " · "));
     t.appendChild(document.createTextNode(c.title));
+    // OP-088 — wireframe 3a's header context chips (project · status). Filled on every
+    // render, not just below the breakpoint: the node is display:none on desktop, so
+    // this is inert there, and a breakpoint crossing with a card already open finds the
+    // chips already correct. Same "render always, reveal below the breakpoint" rule the
+    // OP-087 status pill follows.
+    var chips = $("mdet-chips"); chips.innerHTML = "";
+    chips.appendChild(el("span", "mdet-chip proj", c.project));
+    chips.appendChild(el("span", "mdet-chip", c.status || "—"));
     // One render, no data difference (AC-2): build the shared {main, rail} once and
     // append to the active container. CSS lays it out (drawer stacks; modal 2-column).
     var content = detailContent(c);
@@ -2729,6 +2901,18 @@
       var a = el("a", "pathlink", L.label || L.url);
       a.href = L.url; a.target = "_blank"; a.rel = "noopener";
       row.appendChild(a);
+      // OP-088 — wireframe 3a gives EVERY link row a Copy button. file:// rows already
+      // have one (the copy-path affordance above, which is the only way to use them);
+      // http(s) rows get this one, display:none above the breakpoint so the desktop
+      // drawer keeps its bare anchor.
+      var mc = el("button", "mcopy", "Copy");
+      mc.type = "button"; mc.title = "Copy this link";
+      mc.addEventListener("click", function (ev) {
+        ev.stopPropagation();
+        if (navigator.clipboard) navigator.clipboard.writeText(L.url).then(function () { toast("Link copied."); }, function () { toast("Copy failed — select the link and copy manually."); });
+        else toast("Clipboard unavailable — copy the link manually.");
+      });
+      row.appendChild(mc);
     }
     return row;
   }
@@ -2864,6 +3048,11 @@
     }
 
     // ---- RAIL (metadata) ----
+    // OP-088 — wireframe 3a's caption. It lives in the RAIL, ahead of the key/value
+    // grid, so the sheet's `order` rules can hoist caption + grid above .detail-main
+    // without either node moving in the DOM (the rail is display:contents there, the
+    // caption display:none above the breakpoint — inert on desktop either way).
+    rail.appendChild(el("div", "mdet-cap", "Full-screen on mobile · dock⇄modal toggle is desktop-only"));
     var kv = el("div", "kv");
     kvRow(kv, "Type", c.type || TYPE_OF[c.kind] || c.kind || "—");
     kvRow(kv, "Project", "[" + c.projTag + "] " + c.project);
@@ -2948,7 +3137,10 @@
     frag.appendChild(el("p", "ac-summary", n.green + " of " + list.length + " done · " + n.yellow + " in progress · " + n.red + " not started"));
     var ul = el("div", "ac-list");
     list.forEach(function (crit) {
-      var wrap = el("div", "ac-item");
+      // OP-088 — the criterion's state is stamped on the row wrapper too, so the sheet
+      // can colour its left border (wireframe 3a). Purely a class stamp: no desktop
+      // rule matches .ac-item.red/.yellow/.green, only the media-query block does.
+      var wrap = el("div", "ac-item " + crit.state);
       var row = el("div", "ac-row");
       var box = el("div", "ac-box " + crit.state);
       box.title = "Status: " + AC_LABEL[crit.state] + " — click to cycle 🟥→🟨→🟩";
@@ -2962,6 +3154,20 @@
       right.appendChild(el("span", "ac-state " + crit.state, AC_LABEL[crit.state]));
       if (crit.updated) right.appendChild(el("div", "ac-updated", "updated " + crit.updated));
       row.appendChild(right);
+      // OP-088 — the ▸ disclosure. On desktop the note and the add-note affordance are
+      // always visible and this button is display:none, so nothing changes; in the sheet
+      // the rows collapse and this expands the one you tap to its note + linked refs
+      // (AC-2). It toggles a class — the reveal itself is CSS.
+      var disc = el("button", "mac-disc", "▸");
+      disc.type = "button";
+      disc.title = "Show this criterion's note and links";
+      disc.setAttribute("aria-expanded", "false");
+      disc.addEventListener("click", function (e) {
+        e.stopPropagation();
+        var open = wrap.classList.toggle("macopen");
+        disc.setAttribute("aria-expanded", open ? "true" : "false");
+      });
+      row.appendChild(disc);
       wrap.appendChild(row);
       // typed notes when present; otherwise the add-note affordance (mockup-faithful).
       if (acHasNote(crit)) { wrap.appendChild(acNoteNode(crit)); }
@@ -3044,6 +3250,7 @@
 
   $("drawer-close").addEventListener("click", closeDrawer);
   $("drawer-bg").addEventListener("click", closeDrawer);
+  $("mdet-back").addEventListener("click", detailBack);   // OP-088 — sheet ‹ (mobile only)
   // OP-084 — dock⇄modal toggle + modal close paths.
   $("drawer-mode").addEventListener("click", function () { setDetailMode("modal"); });
   $("dmodal-mode").addEventListener("click", function () { setDetailMode("drawer"); });
@@ -4372,6 +4579,11 @@
     mSegApply();
     mClose();
     mSetContext();
+    // OP-088 — detailMode() is derived from IS_MOBILE, so a card left open across the
+    // crossing has to be re-presented in the container that is now correct: modal ->
+    // full-screen sheet on the way down, sheet -> the persisted drawer/modal on the way
+    // back up. No-op when nothing is open.
+    reopenDetail();
   }
 
   $("mbtn-nav").addEventListener("click", function () { mToggle("mnav-open"); });
