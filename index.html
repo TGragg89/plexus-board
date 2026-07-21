@@ -455,6 +455,148 @@
 
   /* hide board-only header controls when not on the board surface */
   #app:not(.surf-board) .board-only { display: none !important; }
+
+  /* ================================================================================
+     OP-085 (EP-031) — RESPONSIVE APP SHELL + BREAKPOINT FOUNDATION (mobile chrome)
+
+     EP-031 mobile breakpoint: 760px — OP-086…OP-092 reuse this EXACT value.
+     Chosen deliberately and named ONCE: it sits just under the 768px tablet-portrait
+     line, so phones and narrow windows get the mobile chrome while iPad-portrait and
+     everything wider keeps the full desktop board. Every later EP-031 child gates its
+     responsive rules on `@media (max-width: 760px)` — do not introduce a second value.
+
+     AC-2 CONTRACT (desktop unchanged): every mobile-chrome node below is `display:none`
+     at ALL widths by default; ONLY the media query at the bottom of this block lights
+     it up. Nothing above the media query alters an existing desktop rule, and the JS
+     side (applyShell) is a no-op until the viewport actually crosses the breakpoint —
+     so a desktop-width page load runs zero mobile code and renders byte-identically.
+
+     Reuse, don't fork (per the OP-085 contract): the off-canvas nav drawer IS the
+     existing #sidenav (OP-040 surfaces + OP-083 collapse), the filter sheet holds the
+     existing .filters row with its real buildMS widgets, and the bottom bar's +New /
+     Search / Reload / Forget buttons drive the EXISTING header controls' handlers.
+
+     Visual contract: EP-031 wireframe screens 2e "Header / nav pattern" + 1a
+     (C:\Users\TJgra\My Drive\Plexus\Mockups\Plexus Mobile Wireframe (standalone)v2.html)
+     ================================================================================ */
+
+  /* --- inert above the breakpoint (this is what guarantees AC-2) --- */
+  .mtitle, .mscrim, .msheet, .mbar { display: none; }
+
+  @media (max-width: 760px) {
+    :root { --mbar-h: 56px; }
+
+    /* ---- trimmed top bar: context + sync only (wireframe 2e) ---- */
+    header.bar { padding: 10px 12px; }
+    header.bar .row1 { gap: 8px; }
+    /* everything that isn't context-or-sync leaves the bar; the actions it held are
+       reachable from the bottom bar / More sheet, driving these same elements. */
+    header.bar .title, #hdr-user, #hdr-date, #gs-open,
+    #new-btn, #reload-btn, #forget-btn { display: none !important; }
+    /* flex:none so a long sync string can never squeeze the context label to nothing;
+       #m-context does the yielding via its own max-width + ellipsis. */
+    .mtitle { display: inline-flex; align-items: center; gap: 7px; flex: none; min-width: 0;
+      font: 700 10px/1 ui-monospace, Menlo, Consolas, monospace; letter-spacing: .4px; color: var(--ink); }
+    .mtitle .mdot { flex: none; width: 3px; height: 3px; border-radius: 50%; background: var(--line); }
+    .mtitle #m-context { font: 600 11.5px/1.2 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      letter-spacing: 0; color: var(--ink-dim); max-width: 42vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    /* the sync indicator is the EXISTING #hdr-status (+ OP-079's #hdr-staledot beside
+       it): a dot that reads "synced" when idle, dot + text while a write is in flight. */
+    #hdr-status { display: inline-flex; align-items: center; gap: 5px; flex: none;
+      max-width: 108px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 10px; }
+    #hdr-status::before { content: ""; flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--ok); }
+
+    /* ---- panes: keep the page itself from ever scrolling sideways ----
+       flex items default to min-width:auto, so the desktop 5-column grid would push
+       #appmain wider than the viewport. Pinning min-width:0 keeps the overflow inside
+       the surface (it scrolls itself) — the board keeps its desktop form here on
+       purpose; making it a segmented picker is OP-086, not this shell. */
+    .board, .surface, #surface-lists { min-width: 0; }
+    .board { padding-bottom: calc(var(--mbar-h) + 26px); }
+    .surface, #surface-lists { padding-bottom: calc(var(--mbar-h) + 26px); }
+    .toast { bottom: calc(var(--mbar-h) + 16px); max-width: calc(100vw - 32px); }
+
+    /* ---- off-canvas nav drawer = the EXISTING #sidenav ----
+       Listed with the OP-083 `#app.navhidden #sidenav` selector so a persisted
+       collapsed-nav state can't leave the mobile drawer stuck at width:0. */
+    #sidenav, #app.navhidden #sidenav {
+      position: fixed; top: 0; bottom: 0; left: 0; z-index: 37;
+      width: min(82vw, 300px); padding: 16px 10px calc(var(--mbar-h) + 20px);
+      opacity: 1; overflow: auto; border-right: 1px solid var(--line);
+      transform: translateX(-102%); transition: transform .2s ease; box-shadow: 6px 0 30px #0009;
+    }
+    body.mnav-open #sidenav, body.mnav-open #app.navhidden #sidenav { transform: translateX(0); }
+    #sidenav a { padding: 12px 12px; font-size: 13.5px; }   /* touch target, drawer only */
+    #sidenav h4 { margin: 18px 8px 6px; }
+
+    /* ---- one scrim for the drawer and both sheets ---- */
+    .mscrim { display: block; position: fixed; inset: 0; background: rgba(4, 6, 10, .55);
+      z-index: 36; opacity: 0; pointer-events: none; transition: opacity .18s ease; }
+    body.mnav-open .mscrim, body.msheet-open .mscrim, body.mmore-open .mscrim { opacity: 1; pointer-events: auto; }
+
+    /* ---- bottom sheets (filters, More) — wireframe 1a sheet language ---- */
+    .msheet { display: flex; flex-direction: column; position: fixed; left: 0; right: 0; bottom: 0;
+      z-index: 39; max-height: 80vh; background: var(--bg); border-top: 1px solid var(--line);
+      border-radius: 20px 20px 0 0; box-shadow: 0 -14px 40px #000a;
+      transform: translateY(101%); transition: transform .22s ease; }
+    body.msheet-open #msheet, body.mmore-open #mmore { transform: translateY(0); }
+    .msheet .mgrip { position: absolute; top: 7px; left: 50%; transform: translateX(-50%);
+      width: 38px; height: 4px; border-radius: 2px; background: var(--line); }
+    .msheet-hd { display: flex; align-items: center; gap: 10px; padding: 17px 16px 10px; border-bottom: 1px solid var(--line); }
+    .msheet-hd h4 { margin: 0; font-size: 12.5px; font-weight: 700; letter-spacing: .4px; text-transform: uppercase; color: var(--ink-dim); }
+    .msheet-done { margin-left: auto; font-size: 12px; padding: 6px 15px; }
+    .msheet-body { padding: 12px 14px calc(var(--mbar-h) + 20px); overflow: auto; }
+
+    /* filter sheet: the REAL .filters row, moved here — same buildMS widgets, no fork.
+       Chip layout per wireframe 2e; the hamburger and the flex spacer have no meaning
+       in a sheet, and Type/Priority swap order to match the wireframe's chip run. */
+    #msheet-body .filters { margin-top: 0; gap: 10px 12px; }
+    #msheet-body .filters #nav-toggle, #msheet-body .filters .spacer { display: none; }
+    #msheet-body .filters label { font-size: 12.5px; gap: 7px; }
+    /* Wireframe 2e runs the chips Project · Priority · Type · Cycle · Goal; the DOM order
+       is Project · Type · Priority · Cycle · Goal. Every item gets an explicit `order` —
+       naming only the two that swap would leave the rest at the default 0 and float them
+       ahead of both. nth-of-type counts the <label> siblings: 1=Project 2=Type 3=Priority
+       4=Cycle 5=Strategic Goal 6=Session-focus toggle. */
+    #msheet-body .filters label:nth-of-type(1) { order: 1; }   /* Project        */
+    #msheet-body .filters label:nth-of-type(2) { order: 3; }   /* Type     -> 3rd */
+    #msheet-body .filters label:nth-of-type(3) { order: 2; }   /* Priority -> 2nd */
+    #msheet-body .filters label:nth-of-type(4) { order: 4; }   /* Cycle          */
+    #msheet-body .filters label:nth-of-type(5) { order: 5; }   /* Strategic Goal */
+    #msheet-body .filters .toggle, #msheet-body .filters #saveview-btn { order: 9; }
+    /* The sheet holds its own half-screen height: a .ms-pop is absolutely positioned
+       inside .msheet-body, which scrolls — so a sheet sized only to its chips would clip
+       the open dropdown. 44vh leaves room for the tallest option list. */
+    #msheet .msheet-body { min-height: 44vh; }
+    #msheet-body .ms-btn { padding: 7px 24px 7px 11px; font-size: 12.5px; border-radius: 16px; max-width: 60vw; }
+    #msheet-body .ms-pop label { padding: 9px 8px; }
+    #msheet-body #saveview-btn { padding: 7px 14px; }
+    /* More sheet rows */
+    #mmore-view { display: flex; align-items: center; gap: 10px; font-size: 12.5px; color: var(--ink-dim); }
+    #mmore-view .hsel select { max-width: 52vw; padding: 7px 8px; }
+    .mmore-act { display: block; width: 100%; text-align: left; margin-top: 10px; padding: 12px 14px; font-size: 13px; }
+
+    /* ---- bottom action bar: Nav · Filter · +New · Search · More (wireframe 1a/2e) ---- */
+    .mbar { display: flex; align-items: center; justify-content: space-around;
+      position: fixed; left: 0; right: 0; bottom: 0; z-index: 35;
+      padding: 7px 4px calc(12px + env(safe-area-inset-bottom, 0px));
+      background: var(--panel); border-top: 1px solid var(--line); }
+    .mbtn { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+      min-width: 56px; min-height: 44px; padding: 2px 6px; border: none; background: none;
+      color: var(--ink-dim); cursor: pointer; }
+    .mbtn:hover { border: none; }
+    .mbtn .mbtn-i { font-size: 15px; line-height: 1; }
+    .mbtn .mdots { letter-spacing: 1px; }
+    .mbtn .mbtn-l { font: 600 8.5px system-ui, -apple-system, sans-serif; }
+    .mbtn.on { color: var(--accent); }
+    .mfab { width: 46px; height: 46px; margin-top: -14px; flex: none; border: none; border-radius: 50%;
+      background: var(--accent-dim); color: #fff; font: 300 26px/1 system-ui, -apple-system, sans-serif;
+      padding: 0; box-shadow: 0 6px 16px rgba(31, 111, 235, .5); cursor: pointer; }
+    .mfab:hover { border: none; }
+    /* filters only govern the board, so the Filter action rests off-board (parity with
+       the desktop `.board-only` filters row). data-surf is stamped by applyAppClass. */
+    body:not([data-surf="board"]) #mbtn-filter { opacity: .3; pointer-events: none; }
+  }
 </style>
 </head>
 <body>
@@ -500,6 +642,11 @@
   <header class="bar">
     <div class="row1">
       <span class="title">PLEXUS PORTFOLIO KANBAN</span>
+      <!-- OP-085 — trimmed-top-bar context label (wireframe 2e: "PLEXUS · Portfolio
+           board · ●"). Inert above the breakpoint; #m-context tracks the active
+           surface (set by applyAppClass). The sync half of the bar is the existing
+           #hdr-staledot + #hdr-status below — not rebuilt here. -->
+      <span class="mtitle" id="m-title">PLEXUS<i class="mdot"></i><span id="m-context">Portfolio board</span></span>
       <span class="meta" id="hdr-user"></span>
       <span class="meta" id="hdr-date"></span>
       <!-- OP-041 — global search entry. In row1 (NOT the .board-only filters row) so it
@@ -639,6 +786,58 @@
     </div>
   </div>
 </div>
+
+<!-- ===================== OP-085 (EP-031) — MOBILE CHROME ===================== -->
+<!-- Every node below is display:none above the 760px breakpoint (see the OP-085 CSS
+     block) and is only lit up inside its media query — that inertness is what keeps
+     the desktop layout unchanged (AC-2). The off-canvas nav drawer is NOT here: it is
+     the existing #sidenav, repositioned by CSS below the breakpoint.
+     Visual contract: wireframe screens 2e + 1a. -->
+<div class="mscrim" id="mscrim"></div>
+
+<!-- Filter sheet — #msheet-body receives the REAL header .filters row (same buildMS
+     multi-selects, same handlers) while below the breakpoint; it is moved back into
+     header.bar on the way up. See applyShell/mRelocate. -->
+<div class="msheet" id="msheet" role="dialog" aria-modal="true" aria-label="Filters">
+  <span class="mgrip"></span>
+  <div class="msheet-hd"><h4>Filters</h4><button class="msheet-done" id="msheet-done">Done</button></div>
+  <div class="msheet-body" id="msheet-body"></div>
+</div>
+
+<!-- More sheet — the header actions that don't earn a bottom-bar slot. The View
+     selector (label.hsel) is moved here; Reload / Forget token drive the existing
+     header buttons so their handlers stay the single source of truth. -->
+<div class="msheet" id="mmore" role="dialog" aria-modal="true" aria-label="More">
+  <span class="mgrip"></span>
+  <div class="msheet-hd"><h4>More</h4><button class="msheet-done" id="mmore-done">Done</button></div>
+  <div class="msheet-body">
+    <div id="mmore-view"></div>
+    <button class="mmore-act" id="mmore-reload">Reload</button>
+    <button class="mmore-act" id="mmore-forget">Forget token</button>
+  </div>
+</div>
+
+<!-- Bottom action bar — Nav · Filter · +New · Search · More (wireframe 1a/2e). -->
+<nav class="mbar" id="mbar" aria-label="Board actions">
+  <button class="mbtn" id="mbtn-nav" aria-label="Open navigation">
+    <svg width="17" height="17" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+      <circle cx="8" cy="8" r="6.4" stroke="currentColor" stroke-width="1.2"></circle>
+      <path d="M8 4.4 L9.5 8 L8 11.6 L6.5 8 Z" fill="currentColor"></path>
+    </svg><span class="mbtn-l">Nav</span>
+  </button>
+  <button class="mbtn" id="mbtn-filter" aria-label="Open filters">
+    <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
+      <path d="M2 3.2 H14 L9.4 8.4 V12.8 L6.6 11.4 V8.4 Z" fill="currentColor"></path>
+    </svg><span class="mbtn-l">Filter</span>
+  </button>
+  <button class="mfab" id="mbtn-new" aria-label="New work item" title="New work item">+</button>
+  <button class="mbtn" id="mbtn-search" aria-label="Search everything">
+    <span class="mbtn-i" aria-hidden="true">⌕</span><span class="mbtn-l">Search</span>
+  </button>
+  <button class="mbtn" id="mbtn-more" aria-label="More actions">
+    <span class="mbtn-i mdots" aria-hidden="true">⋯</span><span class="mbtn-l">More</span>
+  </button>
+</nav>
 
 <!-- ====================================================================== -->
 <!-- CORE: pure functions only (no DOM, no network). Mirror-tested in Node  -->
@@ -2678,6 +2877,10 @@
     // Nav toggle shortcut (works on any surface).
     if ((e.metaKey || e.ctrlKey) && e.key === "\\") { e.preventDefault(); toggleNav(); return; }
     if (e.key !== "Escape") return;
+    // OP-085 — an open mobile drawer/sheet takes Esc first. These classes only ever
+    // exist below the breakpoint, so this falls straight through on desktop.
+    var mb = document.body.classList;
+    if (mb.contains("mnav-open") || mb.contains("msheet-open") || mb.contains("mmore-open")) { e.preventDefault(); mClose(); return; }
     // Let the confirm dialog / intake wizard own Esc while either is open.
     if (!$("modal-bg").classList.contains("hidden")) return;
     if (!$("wiz-bg").classList.contains("hidden")) return;
@@ -3097,7 +3300,14 @@
   // OP-083 — the collapsed-nav state is a class on #app, but showSurface + showApp both
   // REPLACE #app.className wholesale; applyAppClass rebuilds it from BOTH the active surface
   // and NAV_HIDDEN so a surface switch never drops the navhidden class.
-  function applyAppClass() { $("app").className = "surf-" + ACTIVE_SURFACE + (NAV_HIDDEN ? " navhidden" : ""); }
+  function applyAppClass() {
+    $("app").className = "surf-" + ACTIVE_SURFACE + (NAV_HIDDEN ? " navhidden" : "");
+    // OP-085 — the mobile bottom bar is a sibling of #app, so it can't read #app's
+    // surface class; mirror it onto <body> as a data attribute (no styling above the
+    // breakpoint, so this is inert on desktop) and refresh the top-bar context label.
+    document.body.setAttribute("data-surf", ACTIVE_SURFACE);
+    mSetContext();
+  }
   function toggleNav() {
     NAV_HIDDEN = !NAV_HIDDEN;
     try { localStorage.setItem(NAV_KEY, NAV_HIDDEN ? "1" : "0"); } catch (e) {}
@@ -3695,6 +3905,84 @@
     if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return true;
     return !!t.isContentEditable;
   }
+
+  // ===================== OP-085 (EP-031) — RESPONSIVE APP SHELL =====================
+  // The mobile chrome's controller. Two rules keep AC-2 (desktop unchanged) honest:
+  //   1. every mobile node is display:none above the breakpoint (CSS), and
+  //   2. applyShell only DOES anything when the viewport actually crosses it — a
+  //      desktop-width load never relocates a node or touches a class.
+  // Nothing here is a re-implementation: the drawer is #sidenav, the filter sheet
+  // holds the real .filters row, and +New / Search / Reload / Forget click the
+  // existing header buttons so their handlers stay the one source of truth.
+  var MOBILE_BP = 760;                                    // == the CSS media query; see the OP-085 CSS block
+  var MQ_MOBILE = window.matchMedia("(max-width: " + MOBILE_BP + "px)");
+  var IS_MOBILE = false;
+  var SURFACE_LABEL = { board: "Portfolio board", lists: "Captures & Pie", registers: "Registers" };
+
+  function mSetContext() {
+    var c = $("m-context"); if (c) c.textContent = SURFACE_LABEL[ACTIVE_SURFACE] || "Portfolio board";
+  }
+  function mClose() { document.body.classList.remove("mnav-open", "msheet-open", "mmore-open"); mSyncBtns(); }
+  function mToggle(cls) {
+    var wasOpen = document.body.classList.contains(cls);
+    document.body.classList.remove("mnav-open", "msheet-open", "mmore-open");
+    if (!wasOpen) document.body.classList.add(cls);
+    mSyncBtns();
+  }
+  function mSyncBtns() {
+    var b = document.body.classList;
+    $("mbtn-nav").classList.toggle("on", b.contains("mnav-open"));
+    $("mbtn-filter").classList.toggle("on", b.contains("msheet-open"));
+    $("mbtn-more").classList.toggle("on", b.contains("mmore-open"));
+  }
+  // The only two controls that can't be driven by a proxy click — a <select> and a
+  // whole row of stateful widgets — are MOVED rather than duplicated, and moved back
+  // to their exact desktop positions on the way up (.filters is header.bar's last
+  // child; label.hsel sits immediately before #new-btn).
+  function mRelocate(toMobile) {
+    var bar = document.querySelector("header.bar"), row1 = bar.querySelector(".row1");
+    var filters = bar.querySelector(".filters") || $("msheet-body").querySelector(".filters");
+    var hsel = row1.querySelector(".hsel") || $("mmore-view").querySelector(".hsel");
+    if (toMobile) {
+      if (filters) $("msheet-body").appendChild(filters);
+      if (hsel) $("mmore-view").appendChild(hsel);
+    } else {
+      if (filters) bar.appendChild(filters);
+      if (hsel) row1.insertBefore(hsel, $("new-btn"));
+    }
+  }
+  function applyShell() {
+    if (MQ_MOBILE.matches === IS_MOBILE) return;          // no crossing -> no mutation
+    IS_MOBILE = MQ_MOBILE.matches;
+    document.body.classList.toggle("mobile", IS_MOBILE);
+    mRelocate(IS_MOBILE);
+    mClose();
+    mSetContext();
+  }
+
+  $("mbtn-nav").addEventListener("click", function () { mToggle("mnav-open"); });
+  $("mbtn-filter").addEventListener("click", function () { mToggle("msheet-open"); });
+  $("mbtn-more").addEventListener("click", function () { mToggle("mmore-open"); });
+  $("mbtn-new").addEventListener("click", function () { mClose(); $("new-btn").click(); });
+  $("mbtn-search").addEventListener("click", function () { mClose(); $("gs-open").click(); });
+  $("mmore-reload").addEventListener("click", function () { mClose(); $("reload-btn").click(); });
+  $("mmore-forget").addEventListener("click", function () { mClose(); $("forget-btn").click(); });
+  $("msheet-done").addEventListener("click", mClose);
+  $("mmore-done").addEventListener("click", mClose);
+  $("mscrim").addEventListener("click", mClose);
+  // Picking a destination in the drawer navigates (buildSideNav's own handler) and
+  // dismisses it — one tap, not two.
+  $("sidenav").addEventListener("click", function (e) { if (e.target.closest && e.target.closest("a")) mClose(); });
+  if (MQ_MOBILE.addEventListener) MQ_MOBILE.addEventListener("change", applyShell);
+  else MQ_MOBILE.addListener(applyShell);
+  // Belt-and-braces: some embedded/emulated viewports resize without ever firing the
+  // matchMedia change event OR window.resize (both observed in this build's harness,
+  // whose tab reports visibilityState "hidden"). applyShell is a no-op unless the
+  // breakpoint is actually crossed, so listening three ways costs nothing and makes the
+  // crossing deterministic — a rotating phone, a split-screen resize, a dragged window.
+  window.addEventListener("resize", applyShell);
+  if (window.ResizeObserver) new ResizeObserver(applyShell).observe(document.documentElement);
+  applyShell();
 
   $("gs-open").addEventListener("click", gsOpen);
   $("gs-input").addEventListener("input", gsRender);
