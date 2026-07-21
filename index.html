@@ -852,14 +852,30 @@
     .ac-row { align-items: center; padding: 10px 11px; }
     .ac-right { flex-direction: row; align-items: center; gap: 6px; }
     .ac-updated { display: none; }                      /* the state label carries the row */
+    /* The disclosure control. Wireframe 3a draws this as a bare `▸` glyph in
+       --ink-faint at 11px, and shipping it that way was a mistake caught on the first
+       real-device look (2026-07-21): on a static mockup you know where to look, but on
+       a phone a faint grey glyph with no background reads as decoration, not a control
+       — the affordance was missed entirely. So it deviates from the mockup deliberately:
+       a --ink-dim chevron on a --panel2 chip with a border, i.e. the same visual
+       language as .mstatuspill and .mdet-back, which are the other two things on this
+       surface you are meant to tap. */
     .mac-disc {
       display: inline-flex; align-items: center; justify-content: center; flex: none;
-      position: relative; width: 24px; height: 24px; padding: 0;
-      border: none; background: none; color: var(--ink-faint); font-size: 12px;
+      position: relative; width: 26px; height: 26px; padding: 0; border-radius: 7px;
+      /* --bg, NOT --panel2: .ac-item is already --panel2, so a panel2 chip would read
+         only by its 1px border. The darker fill is what makes it a control at a glance. */
+      border: 1px solid var(--line); background: var(--bg); color: var(--ink-dim);
+      font-size: 12px; line-height: 1;
       transition: transform .15s ease; cursor: pointer;
     }
-    .mac-disc::after { content: ""; position: absolute; inset: -10px; }  /* 44px tap target */
-    .ac-item.macopen .mac-disc { transform: rotate(90deg); }
+    .mac-disc::after { content: ""; position: absolute; inset: -9px; }  /* 44px tap target */
+    .ac-item.macopen .mac-disc { transform: rotate(90deg); border-color: var(--accent-dim); color: var(--ink); }
+    /* ...and the whole criterion row is a tap target for the same toggle, so finding
+       the chip is never a prerequisite for opening the note. The state box keeps its
+       own handler (it CYCLES the criterion, a write) and stops propagation, so tapping
+       the box still only cycles and never also expands. */
+    .ac-row { cursor: pointer; }
     /* collapsed by default; the disclosure reveals whichever expandable region the
        criterion has — its typed note + linked refs, or the add-note affordance. */
     .ac-item .ac-note { display: none; padding-left: 38px; }
@@ -3162,11 +3178,20 @@
       disc.type = "button";
       disc.title = "Show this criterion's note and links";
       disc.setAttribute("aria-expanded", "false");
-      disc.addEventListener("click", function (e) {
+      function acToggle(e) {
+        // Desktop never collapses these rows (the note is always visible there and the
+        // chip is display:none), so the toggle must be a genuine no-op above the
+        // breakpoint rather than silently stamping a class on every click.
+        if (!IS_MOBILE) return;
         e.stopPropagation();
         var open = wrap.classList.toggle("macopen");
         disc.setAttribute("aria-expanded", open ? "true" : "false");
-      });
+      }
+      disc.addEventListener("click", acToggle);
+      // The whole row toggles too — the chip alone was missed on the first real-device
+      // look, so finding it is not a prerequisite for opening the note. `box` stops
+      // propagation, so tapping the state box still only cycles the criterion.
+      row.addEventListener("click", acToggle);
       row.appendChild(disc);
       wrap.appendChild(row);
       // typed notes when present; otherwise the add-note affordance (mockup-faithful).
