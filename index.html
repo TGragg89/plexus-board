@@ -496,8 +496,13 @@
      display:none here, so a desktop drawer/modal render is byte-identical (AC-3).
      detailContent()/renderAcChecklist()/linkRow() emit them unconditionally — the
      same "render always, reveal below the breakpoint" rule .mstatuspill follows. */
+  /* OP-089's added nodes — the intake sheet's ‹ back and ✕ close. Both are header
+     controls that only exist in the full-screen form; the desktop wizard closes with
+     Cancel / Esc exactly as before, so both are display:none here and the desktop
+     wizard's own nodes are untouched (AC-2). */
   .mtitle, .mscrim, .msheet, .mbar, .mseg-count, .mstatuspill,
-  .mdet-back, .mdet-chips, .mdet-cap, .mac-disc, .mcopy { display: none; }
+  .mdet-back, .mdet-chips, .mdet-cap, .mac-disc, .mcopy,
+  .mwiz-back, .mwiz-x { display: none; }
 
   @media (max-width: 760px) {
     :root { --mbar-h: 56px; }
@@ -898,6 +903,136 @@
       background: var(--panel); color: var(--ink-dim);
       font: 600 9.5px system-ui, -apple-system, sans-serif; cursor: pointer;
     }
+
+    /* ==========================================================================
+       OP-089 (EP-031) — INTAKE FORM: FULL-SCREEN + KEYBOARD-AWARE.
+       Deliberately inside OP-085's media query — ONE breakpoint (760px) for all of
+       EP-031, never a second value.
+
+       This is a LAYOUT change, not a second intake form. buildWizardForm() still
+       renders every field, still drives the live .wiz-commit preview, and #wiz-ok
+       still runs doIntake()/doChildIntake() — the mobile FAB proxy-clicks the SAME
+       #new-btn, so there is one intake path and one write path, as on desktop.
+
+       THE KEYBOARD IS THE DESIGN CONSTRAINT. This screen is almost entirely typing,
+       so the on-screen keyboard is up for essentially all of its life, covering
+       40–50% of the screen. It does NOT shrink the layout viewport: `100vh`, `100dvh`
+       and a `position:fixed` footer all resolve against the FULL screen, which is
+       exactly how a Create button ends up drawn behind the keyboard. So the sheet is
+       sized and positioned from window.visualViewport instead — the JS side writes
+       --mvv-h/-t/-l/-w (see the OP-089 JS block) and the sheet is pinned to that box,
+       which keeps the footer actions and the commit preview reachable by construction.
+
+       The grid is what makes that hold: header / scrolling body / error / footer as
+       four explicit rows means only the BODY absorbs the shrink when the keyboard
+       opens — the footer cannot be pushed off, because it is not in the scroll flow.
+
+       Visual contract: wireframe screen 2a "Intake form → commit preview".
+       ========================================================================== */
+
+    /* ---- the sheet: the EXISTING #wiz-bg / .modal.wiz, pinned to the visible box ---- */
+    /* opaque because the sheet is full-screen: with the keyboard up the sheet is
+       shorter than the layout viewport, and the strip behind it should read as chrome,
+       not as a half-dimmed board. */
+    #wiz-bg { background: var(--bg); display: block; }
+    #wiz-bg .modal.wiz {
+      position: fixed; left: var(--mvv-l, 0px); top: var(--mvv-t, 0px);
+      width: var(--mvv-w, 100vw); height: var(--mvv-h, 100vh);
+      max-width: none; padding: 0; border: none; border-radius: 0; box-shadow: none;
+      display: grid; grid-template-columns: auto minmax(0, 1fr) auto;
+      grid-template-rows: auto minmax(0, 1fr) auto auto;   /* header · body · err · acts */
+    }
+
+    /* ---- sticky-by-construction header: ‹ back · "New work item" · ✕ ---- */
+    .modal.wiz > .mwiz-back, .modal.wiz > .mwiz-x {
+      display: inline-flex; align-items: center; justify-content: center; grid-row: 1;
+      width: 34px; height: 34px; margin: 10px 8px; padding: 0; border-radius: 8px;
+      border: 1px solid var(--line); background: var(--panel2); color: var(--ink-dim);
+      font: 400 19px/1 system-ui, -apple-system, sans-serif; cursor: pointer;
+    }
+    .modal.wiz > .mwiz-back { grid-column: 1; }
+    .modal.wiz > .mwiz-x { grid-column: 3; font-size: 17px; }
+    .modal.wiz > h3 {
+      grid-row: 1; grid-column: 2; align-self: center; margin: 0; font-size: 14px;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+
+    /* ---- the form body: the only row that absorbs the keyboard ---- */
+    /* position:relative makes this the offsetParent the JS reveal measures against;
+       overscroll-behavior:contain stops a flick at the end of the form from scrolling
+       the board underneath (which on iOS also drags the fixed sheet out of place). */
+    .modal.wiz > .body {
+      grid-row: 2; grid-column: 1 / -1; position: relative; overflow: auto;
+      overscroll-behavior: contain; -webkit-overflow-scrolling: touch;
+      display: flex; flex-direction: column;
+      padding: 12px 14px 18px; border-top: 1px solid var(--line);
+    }
+    .modal.wiz > .err { grid-row: 3; grid-column: 1 / -1; margin: 0; padding: 0 14px; }
+    .modal.wiz > .acts {
+      grid-row: 4; grid-column: 1 / -1; margin-top: 0; gap: 10px;
+      padding: 10px 14px calc(10px + env(safe-area-inset-bottom, 0px));
+      border-top: 1px solid var(--line); background: var(--panel);
+    }
+    .modal.wiz > .acts button { min-height: 46px; font-size: 13.5px; }
+    .modal.wiz > .acts #wiz-cancel { flex: 0 0 auto; padding: 0 20px; }
+    .modal.wiz > .acts #wiz-ok { flex: 1; }   /* "Create + commit" — the wireframe's primary */
+
+    /* ---- stacked fields (AC-1): label over control, thumb-sized targets ---- */
+    #wiz-body .wiz-intro { order: 0; margin-bottom: 16px; }
+    #wiz-body .wiz-field { display: block; margin: 0 0 14px; scroll-margin: 16px 0; }
+    #wiz-body .wiz-field > label {
+      display: block; padding: 0 0 5px;
+      font: 600 9.5px system-ui, -apple-system, sans-serif; letter-spacing: .6px;
+      text-transform: uppercase; color: var(--ink-faint);
+    }
+    /* 16px is not a style choice — below it iOS Safari zooms the page on focus, which
+       breaks every position calculation this block depends on. */
+    #wiz-body .wiz-field input[type=text], #wiz-body .wiz-field select, #wiz-body .wiz-field textarea {
+      min-height: 44px; padding: 10px 11px; font-size: 16px; border-radius: 9px;
+    }
+    #wiz-body .wiz-field textarea { min-height: 84px; }
+    /* Wireframe 2a runs LEVEL · PROJECT · TYPE · PRIORITY · PARENT · TITLE · … · AC;
+       the DOM order is Level · Project · Type · Parent · Title · Priority · Cycle ·
+       Description · AC. Every child gets an explicit `order` — naming only the two
+       that swap would leave the rest at 0 and float them above the intro. The point of
+       the run is the tail: the two heavy-typing fields (Title, Acceptance criteria)
+       sit LAST, immediately above the commit preview, so the thing you are watching
+       change is the thing directly under the field you are typing into. */
+    #wiz-body .wiz-field:nth-of-type(1) { order: 1; }   /* Level               */
+    #wiz-body .wiz-field:nth-of-type(2) { order: 2; }   /* Project             */
+    #wiz-body .wiz-field:nth-of-type(3) { order: 3; }   /* Type                */
+    #wiz-body .wiz-field:nth-of-type(4) { order: 5; }   /* Parent    -> 5th    */
+    #wiz-body .wiz-field:nth-of-type(5) { order: 7; }   /* Title     -> 7th    */
+    #wiz-body .wiz-field:nth-of-type(6) { order: 4; }   /* Priority  -> 4th    */
+    #wiz-body .wiz-field:nth-of-type(7) { order: 6; }   /* Cycle     -> 6th    */
+    #wiz-body .wiz-field:nth-of-type(8) { order: 8; }   /* Description         */
+    #wiz-body .wiz-field:nth-of-type(9) { order: 9; }   /* Acceptance criteria */
+    #wiz-body .wiz-hint { order: 10; }
+    #wiz-body .wiz-commit { order: 11; }
+
+    /* ---- the commit preview: the wireframe's captioned GIT COMMIT PREVIEW block ----
+       The caption is a ::before, not a node: .wiz-commit's textContent is rewritten on
+       every keystroke by refresh(), and generated content survives that untouched.
+
+       STICKY, and that is the point. "Live preview that updates as you type" is only
+       true if you can SEE it while typing — and with the keyboard up there is roughly
+       240px of form left, not enough to hold Title, Description, Acceptance criteria
+       AND the preview at once. Sticky-to-bottom pins it just above the action row for
+       exactly as long as its natural position is below the fold, so the message you are
+       about to commit is on screen for every keystroke that changes it, and it lands
+       back in the flow when you scroll to the end. Opaque (not the desktop block's
+       translucent #00000044) because it now draws over the form behind it. */
+    #wiz-body .wiz-commit {
+      position: sticky; bottom: 0; z-index: 1;
+      margin-top: 4px; padding: 10px 11px; border-radius: 9px;
+      background: var(--panel2); border-color: var(--accent-dim);
+      font-size: 11.5px; line-height: 1.45; color: var(--ink);
+    }
+    #wiz-body .wiz-commit::before {
+      content: "GIT COMMIT PREVIEW"; display: block; margin-bottom: 6px;
+      font: 600 9px system-ui, -apple-system, sans-serif; letter-spacing: .6px;
+      color: var(--ink-faint);
+    }
   }
 </style>
 </head>
@@ -1066,7 +1201,12 @@
 <!-- ============================= INTAKE WIZARD (slice 3 — Write Pattern 3) ============================= -->
 <div class="modal-bg hidden" id="wiz-bg">
   <div class="modal wiz" role="dialog" aria-modal="true" aria-label="New work item">
+    <!-- OP-089 — the full-screen form's header controls (wireframe 2a). Both are
+         display:none above the 760px breakpoint, where Cancel and Esc already close
+         the centred wizard and a phone-style header would be noise. -->
+    <button class="mwiz-back" id="wiz-back" aria-label="Back" title="Back">‹</button>
     <h3 id="wiz-title">New work item</h3>
+    <button class="mwiz-x" id="wiz-close" aria-label="Close" title="Close">×</button>
     <div class="body" id="wiz-body"></div>
     <div class="err" id="wiz-err"></div>
     <div class="acts">
@@ -3455,7 +3595,10 @@
   }
   function closeWizard() { $("wiz-bg").classList.add("hidden"); }
   function wizErr(m) { $("wiz-err").textContent = m || ""; }
-  function setWizBusy(b) { $("wiz-ok").disabled = b; $("wiz-ok").textContent = b ? "Creating…" : "Create"; }
+  // OP-089 — below the breakpoint the primary reads "Create + commit" (wireframe 2a):
+  // on a phone the button is the last thing seen before a write, so it names the write.
+  // Desktop keeps "Create" verbatim.
+  function setWizBusy(b) { $("wiz-ok").disabled = b; $("wiz-ok").textContent = b ? "Creating…" : (IS_MOBILE ? "Create + commit" : "Create"); }
   function cellSan(s) { return String(s == null ? "" : s).replace(/[|\r\n]+/g, " / ").trim(); }
 
   function buildWizardForm(prefill) {
@@ -3482,6 +3625,21 @@
     var descIn = el("textarea"); descIn.placeholder = "What this item is.";
     if (prefill && prefill.notes) descIn.value = prefill.notes;
     var accIn = el("textarea"); accIn.placeholder = "What \"done\" means (1–5 bullets).";
+
+    // OP-089 — phone input semantics: let the keyboard help instead of fight. Gated on
+    // IS_MOBILE so the desktop form's DOM stays attribute-for-attribute what it was.
+    // Enter on Title is a dead key here (there is no <form> to submit), which reads as
+    // a broken "Next" on a phone — so it moves focus on instead of doing nothing.
+    if (IS_MOBILE) {
+      titleIn.setAttribute("enterkeyhint", "next");
+      titleIn.setAttribute("autocapitalize", "sentences");
+      cycleIn.setAttribute("enterkeyhint", "next");
+      descIn.setAttribute("enterkeyhint", "enter");
+      accIn.setAttribute("enterkeyhint", "enter");
+      titleIn.addEventListener("keydown", function (e) {
+        if (e.key === "Enter") { e.preventDefault(); descIn.focus(); }
+      });
+    }
 
     function field(label, ctrl) { var w = el("div", "wiz-field"); w.appendChild(el("label", null, label)); w.appendChild(ctrl); body.appendChild(w); return w; }
     field("Level", levelSel); field("Project", projSel); field("Type", typeSel);
@@ -4595,6 +4753,79 @@
 
   $("mmove-done").addEventListener("click", mMoveClose);
 
+  // ============ OP-089 (EP-031) — INTAKE FORM: KEYBOARD-AWARE FULL-SCREEN ============
+  // The layout is CSS (see the OP-089 block); this is the part CSS cannot do — telling
+  // the sheet how big the screen ACTUALLY is while a keyboard is up, and keeping the
+  // field you are typing into inside that box.
+  //
+  // Why not `100dvh` and a fixed footer: the on-screen keyboard overlays the layout
+  // viewport instead of shrinking it, so every viewport unit still measures the whole
+  // screen and a pinned footer sits BEHIND the keyboard. window.visualViewport is the
+  // only API that reports the genuinely visible rectangle, and it fires resize/scroll
+  // as the keyboard opens, closes and as iOS scrolls the visual viewport inside the
+  // layout one — so these four vars are the sheet's real geometry, refreshed live.
+  var VV = window.visualViewport || null;
+  function mVVSync() {
+    if (!IS_MOBILE) return;                       // desktop never writes a var (AC-2)
+    var d = document.documentElement, s = d.style;
+    // Clamped to the layout viewport, never beyond it. The visible box can only ever be
+    // a SUBSET of the layout viewport, so min() is a no-op in the case that matters (a
+    // keyboard shrinking the visible height) and a guard everywhere else: emulated and
+    // page-zoomed viewports have been observed reporting a visualViewport LARGER than
+    // the layout box (this build's own harness does, at 390 CSS px / dpr 2), and an
+    // unclamped height there would push the footer actions off the bottom of the screen
+    // — the exact failure this block exists to prevent. Falling back to the layout
+    // viewport is the pre-OP-089 behaviour, so the clamp can only ever be safe.
+    s.setProperty("--mvv-h", Math.min(VV ? VV.height : Infinity, d.clientHeight) + "px");
+    s.setProperty("--mvv-w", Math.min(VV ? VV.width : Infinity, d.clientWidth) + "px");
+    s.setProperty("--mvv-t", Math.max(0, VV ? VV.offsetTop : 0) + "px");
+    s.setProperty("--mvv-l", Math.max(0, VV ? VV.offsetLeft : 0) + "px");
+    mWizReveal();                                 // the visible box moved -> re-park the field
+  }
+  // Symmetric with mRelocate/mSegShell: nothing stamped on the way down survives the
+  // way up. The vars are only read inside the media query, but leaving them set would
+  // still be residue on a desktop-width DOM.
+  function mVVClear() {
+    var s = document.documentElement.style;
+    s.removeProperty("--mvv-h"); s.removeProperty("--mvv-w");
+    s.removeProperty("--mvv-t"); s.removeProperty("--mvv-l");
+  }
+  // Keep the focused field inside the visible box. Scrolls #wiz-body's own scrollTop by
+  // hand rather than calling scrollIntoView(), for two reasons: scrollIntoView also
+  // scrolls every scrollable ancestor (the OP-086 lesson — it yanks the board around),
+  // and the browser's own "scroll the focused input into view" is unreliable for a field
+  // inside a position:fixed, separately-scrolling container, which is exactly what the
+  // sheet is. Centre the field; but a textarea taller than half the box centres to a
+  // position that pushes its own top off-screen, so those get top-aligned instead.
+  function mWizReveal() {
+    if (!IS_MOBILE || $("wiz-bg").classList.contains("hidden")) return;
+    var body = $("wiz-body"), a = document.activeElement;
+    if (!a || !body.contains(a)) return;
+    var f = (a.closest && a.closest(".wiz-field")) || a;
+    var top = (f.offsetHeight > body.clientHeight * 0.5)
+      ? f.offsetTop - 10
+      : f.offsetTop + f.offsetHeight / 2 - body.clientHeight / 2;
+    body.scrollTop = Math.max(0, Math.min(body.scrollHeight - body.clientHeight, top));
+  }
+  if (VV) { VV.addEventListener("resize", mVVSync); VV.addEventListener("scroll", mVVSync); }
+  // Two shots: now (the box we have) and after the keyboard's open animation (the box we
+  // will have). The visualViewport resize covers the same ground on browsers that fire
+  // it promptly; these make the reveal deterministic on the ones that do not.
+  $("wiz-body").addEventListener("focusin", function () {
+    if (!IS_MOBILE) return;
+    setTimeout(mWizReveal, 0);
+    setTimeout(mWizReveal, 260);
+  });
+  // ‹ back and ✕ close both dismiss the form — the wireframe draws both, and on a phone
+  // they are the two gestures a user reaches for. Blur first so the keyboard comes down
+  // with the sheet instead of hanging over the board behind it.
+  function mWizClose() {
+    if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+    closeWizard();
+  }
+  $("wiz-back").addEventListener("click", mWizClose);
+  $("wiz-close").addEventListener("click", mWizClose);
+
   function applyShell() {
     if (MQ_MOBILE.matches === IS_MOBILE) return;          // no crossing -> no mutation
     IS_MOBILE = MQ_MOBILE.matches;
@@ -4604,6 +4835,9 @@
     mSegApply();
     mClose();
     mSetContext();
+    // OP-089 — the intake sheet is sized from the visual viewport; seed those vars on
+    // the way down and strip them on the way up (a desktop-width load never sets one).
+    if (IS_MOBILE) mVVSync(); else mVVClear();
     // OP-088 — detailMode() is derived from IS_MOBILE, so a card left open across the
     // crossing has to be re-presented in the container that is now correct: modal ->
     // full-screen sheet on the way down, sheet -> the persisted drawer/modal on the way
