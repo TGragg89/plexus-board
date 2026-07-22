@@ -995,9 +995,10 @@
        the DOM order is Level · Project · Type · Parent · Title · Priority · Cycle ·
        Description · AC. Every child gets an explicit `order` — naming only the two
        that swap would leave the rest at 0 and float them above the intro. The point of
-       the run is the tail: the two heavy-typing fields (Title, Acceptance criteria)
-       sit LAST, immediately above the commit preview, so the thing you are watching
-       change is the thing directly under the field you are typing into. */
+       the run is the tail: the two heavy-typing fields (Title, Acceptance criteria) sit
+       LAST, so the quick pickers are done with before the keyboard ever comes up, and
+       the commit preview reads as the summary of what you just filled in — the last
+       thing on the form, immediately above Create + commit. */
     #wiz-body .wiz-field:nth-of-type(1) { order: 1; }   /* Level               */
     #wiz-body .wiz-field:nth-of-type(2) { order: 2; }   /* Project             */
     #wiz-body .wiz-field:nth-of-type(3) { order: 3; }   /* Type                */
@@ -1014,16 +1015,20 @@
        The caption is a ::before, not a node: .wiz-commit's textContent is rewritten on
        every keystroke by refresh(), and generated content survives that untouched.
 
-       STICKY, and that is the point. "Live preview that updates as you type" is only
-       true if you can SEE it while typing — and with the keyboard up there is roughly
-       240px of form left, not enough to hold Title, Description, Acceptance criteria
-       AND the preview at once. Sticky-to-bottom pins it just above the action row for
-       exactly as long as its natural position is below the fold, so the message you are
-       about to commit is on screen for every keystroke that changes it, and it lands
-       back in the flow when you scroll to the end. Opaque (not the desktop block's
-       translucent #00000044) because it now draws over the form behind it. */
+       IT STAYS AT THE VERY BOTTOM OF THE FORM — last in the run, after the fields and
+       the hint, immediately above the action row. It scrolls with the form like every
+       other element; it is NOT pinned.
+
+       The first build of this block made it `position:sticky` so it stayed on screen
+       while typing, on the reasoning that a live preview is only live if you can see
+       it. Tim corrected that on the deploy test (2026-07-21): the preview does not need
+       to be visible at all times — it is what you check BEFORE committing, at the end
+       of the form, which is also where wireframe 2a draws it. Pinning it spent scarce
+       keyboard-open space on something the user is not looking at mid-typing, and put a
+       floating panel over the fields underneath. The criterion it serves is that the
+       preview stays REACHABLE, not that it stays visible — and being the last element
+       of a scrolling form satisfies that. */
     #wiz-body .wiz-commit {
-      position: sticky; bottom: 0; z-index: 1;
       margin-top: 4px; padding: 10px 11px; border-radius: 9px;
       background: var(--panel2); border-color: var(--accent-dim);
       font-size: 11.5px; line-height: 1.45; color: var(--ink);
