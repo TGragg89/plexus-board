@@ -508,12 +508,19 @@
      both lists in ONE shared scroll (OP-064's ruling) and needs no switcher, so it is
      display:none here; renderCaptures()/renderPie()/renderRegisters() are untouched and
      the desktop tables, forms and idea grid render byte-identically (AC-3). */
+  /* OP-092's one added node — .mtok-eye, the token show/hide. It exists only in the
+     full-screen setup screen, where a pasted PAT is otherwise unverifiable; the desktop
+     setup screen keeps its two-control token row exactly as before, so it is display:none
+     here (AC-3). Its wrapper .msetup-act dissolves rather than hides — see below. */
   .mtitle, .mscrim, .msheet, .mbar, .mseg-count, .mstatuspill,
   .mdet-back, .mdet-chips, .mdet-cap, .mac-disc, .mcopy,
-  .mwiz-back, .mwiz-x, .mgs-x, .mgs-cap, .mlist-seg { display: none; }
+  .mwiz-back, .mwiz-x, .mgs-x, .mgs-cap, .mlist-seg, .mtok-eye { display: none; }
   /* OP-090 — .gs-hd is a GROUPING box, not a mobile-only node: it must dissolve rather
      than hide, or the desktop palette loses its query and chips rows entirely. */
-  .gs-hd { display: contents; }
+  /* OP-092 — .msetup-act is the same shape: a wrapper added so the mobile setup screen
+     can hold the consent checkbox, token row and error line together, dissolved above
+     the breakpoint so the desktop consent card is byte-identical. */
+  .gs-hd, .msetup-act { display: contents; }
 
   @media (max-width: 760px) {
     :root { --mbar-h: 56px; }
@@ -1395,6 +1402,96 @@
        and fails on desktop too, so changing it deliberately alters the desktop and
        belongs in its own item with its own deploy test — tracked as OP-096 under ML-001
        rather than ridden along silently inside a mobile epic. */
+
+    /* ==========================================================================
+       OP-092 (EP-031) — FIRST-RUN SETUP / TOKEN SCREEN, KEYBOARD-AWARE (mobile)
+
+       Deliberately inside OP-085's media query — ONE breakpoint (760px) for all of
+       EP-031, never a second value. This is EP-031's LAST originally-scoped child,
+       and the FIRST screen a new mobile user ever sees: with no stored token, boot()
+       shows #setup and nothing else exists yet.
+
+       This is a LAYOUT change, not a second onboarding. The same #setup markup, the
+       same #consent-chk / #tok / #store-btn, the same storeToken() -> boot() path.
+
+       THE KEYBOARD IS THE DESIGN CONSTRAINT AGAIN (OP-089's lesson, OP-090's and
+       OP-091's confirmations): entering a PAT means the keyboard is up, and it
+       OVERLAYS the layout viewport rather than shrinking it, so `100dvh` and a fixed
+       footer both resolve against the full screen. So #setup is pinned to the
+       window.visualViewport box via the --mvv-* vars OP-089 already publishes and
+       becomes its own scroller; the three controls AC-4 names ride the bottom of
+       THAT box, not of the screen.
+
+       Two mechanisms, deliberately belt-and-braces, because AC-4 is the criterion
+       most likely to fail on a device the harness cannot be:
+         1. .msetup-act is `position:sticky; bottom:0` inside that scroller, so as the
+            box shrinks the checkbox + field + Store button stay pinned to its floor.
+            That is the by-construction half — no JS involved.
+         2. mSetupReveal() (JS) scrolls #setup so the group is inside the box even when
+            sticky cannot help, i.e. when the consent card itself has been scrolled out
+            of the scrollport. LOCK 18: sticky is bounded by its own containing block,
+            so "it sticks" is not the same as "it is on screen".
+
+       Visual contract: wireframe screen 3c "First-run · connect token".
+       AC-2 note: the permission copy is NOT touched here. Step 1 already instructs
+       "Contents: Read and write. Leave everything else at 'No access'." — which is
+       correct and is what a fine-grained PAT actually needs. The wireframe's caption
+       says "Metadata read/write"; that is wrong (Metadata is mandatory read-only on
+       fine-grained PATs and is not something the user grants read/write), so the
+       wireframe is deliberately NOT followed on that one line.
+       ========================================================================== */
+
+    /* ---- the screen: pinned to the genuinely-visible box, its own scroller ---- */
+    #setup {
+      position: fixed; left: var(--mvv-l, 0px); top: var(--mvv-t, 0px);
+      width: var(--mvv-w, 100vw); height: var(--mvv-h, 100vh);
+      max-width: none; margin: 0;
+      padding: 16px 13px calc(14px + env(safe-area-inset-bottom, 0px));
+      overflow: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch;
+    }
+    #setup h1 { font-size: 19px; }
+    #setup .sub { font-size: 12.5px; margin-bottom: 16px; }
+    /* full-bleed cards: the desktop 18px/20px inset is a page margin the phone cannot
+       afford twice (the screen already has one), and it is what makes the token row
+       narrow enough to need horizontal room it does not have. */
+    #setup .card-box { padding: 13px 13px; margin-bottom: 14px; border-radius: 10px; }
+    #setup .card-box h2 { font-size: 13.5px; margin-bottom: 10px; }
+    #setup ol.steps, #setup .consent ul { padding-left: 17px; font-size: 12.5px; }
+    #setup ol.steps li, #setup .consent ul li { margin: 6px 0; }
+    /* Windows-path-class defect, OP-091's LOCK 18: the copy carries unbreakable runs
+       (github_pat_..., the settings URL text, plexus-bucket-d) that would otherwise
+       push the screen sideways — AC-1's "no horizontal scroll" failing on CONTENT. */
+    #setup, #setup .card-box, #setup li, #setup .sub { min-width: 0; overflow-wrap: anywhere; }
+
+    /* ---- the action group: the three controls AC-4 names, held together ---- */
+    /* bottom:-1px hides the sub-pixel seam some browsers leave under a sticky element.
+       The negative margins pull the group out to the card's edges so its top border
+       reads as a divider across the card rather than a floating box. */
+    .msetup-act {
+      display: block; position: sticky; bottom: -1px; z-index: 1;
+      margin: 12px -13px calc(-13px - env(safe-area-inset-bottom, 0px));
+      padding: 11px 13px calc(11px + env(safe-area-inset-bottom, 0px));
+      background: var(--panel); border-top: 1px solid var(--line);
+      border-radius: 0 0 10px 10px;
+    }
+    /* min-height, not just font-size: the label IS the tap target (it is a <label>, so
+       tapping the text toggles the box), and measured at 390px the wrapped two-line
+       text came to 36px — under the 44px comfortable-target floor AC-1 asks for. */
+    .consent label { margin: 0 0 11px; font-size: 12.5px; min-height: 44px; padding: 3px 0; }
+    /* the checkbox is a control, and the desktop 13px box is under any touch-target
+       guidance; it is enlarged rather than left as a 13px dot beside a 44px row. */
+    .consent label input[type=checkbox] { width: 20px; height: 20px; flex: none; margin: 0; }
+    /* ---- token row stacks: field, then show/hide + Store side by side ---- */
+    .tokrow { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 9px; margin-top: 0; }
+    /* 16px is not a style choice — below it iOS Safari zooms the page on focus, which
+       invalidates every visualViewport measurement this block depends on (OP-089). */
+    .tokrow input { grid-column: 1 / -1; min-height: 46px; font-size: 16px; padding: 11px 12px; border-radius: 9px; }
+    .mtok-eye { display: inline-flex; align-items: center; justify-content: center;
+      min-height: 46px; padding: 0 15px; border-radius: 9px; font-size: 13px; color: var(--ink-dim); }
+    .mtok-eye[aria-pressed="true"] { color: var(--ink); border-color: var(--accent); }
+    .tokrow #store-btn { min-height: 46px; font-size: 14px; }
+    #setup .err { margin-top: 7px; min-height: 0; font-size: 12.5px; }
+    #setup .err:empty { display: none; }   /* no empty gutter under the buttons */
   }
 </style>
 </head>
@@ -1427,12 +1524,23 @@
       <li>To revoke at any time: <b>GitHub → Settings → Developer settings → Fine-grained tokens → Revoke</b>. Then clear it here with "Forget token".</li>
       <li>Use this only on a private device. Shared/public machines are out of contract.</li>
     </ul>
-    <label><input type="checkbox" id="consent-chk" /> <span>I understand the token is stored in this browser's localStorage and I want to store it here.</span></label>
-    <div class="tokrow">
-      <input type="password" id="tok" placeholder="github_pat_..." autocomplete="off" spellcheck="false" />
-      <button class="primary" id="store-btn" disabled>Store token</button>
+    <!-- OP-092 — .msetup-act is a GROUPING box, not a mobile-only node: it wraps the
+         three controls AC-4 names (consent checkbox · token row · error line) so the
+         mobile layout can hold them together above the keyboard. It is
+         `display:contents` at all widths by default, so the desktop consent card lays
+         out exactly as it did before this wrapper existed. -->
+    <div class="msetup-act">
+      <label><input type="checkbox" id="consent-chk" /> <span>I understand the token is stored in this browser's localStorage and I want to store it here.</span></label>
+      <div class="tokrow">
+        <input type="password" id="tok" placeholder="github_pat_..." autocomplete="off" spellcheck="false" />
+        <!-- OP-092 — the wireframe 3c show/hide. display:none above the breakpoint, so
+             the desktop token row is byte-identical; on a phone a pasted 90-character
+             token is unverifiable without it. -->
+        <button type="button" class="mtok-eye" id="mtok-eye" aria-label="Show token" aria-pressed="false">Show</button>
+        <button class="primary" id="store-btn" disabled>Store token</button>
+      </div>
+      <div class="err" id="setup-err"></div>
     </div>
-    <div class="err" id="setup-err"></div>
   </div>
 </div>
 
@@ -2485,13 +2593,33 @@
   storeBtn.addEventListener("click", function () {
     var v = tok.value.trim();
     storeToken(v); tok.value = "";
+    mTokHide();                       // OP-092 — never leave the next token revealed
     boot();
+  });
+  // OP-092 — token show/hide (wireframe 3c). The button is display:none above the
+  // breakpoint, so this only ever runs on a phone; it flips the input's type, which is
+  // the whole mechanism. Reset to hidden whenever the screen is (re)shown or the token
+  // is stored, so a revealed token cannot survive a Forget token -> setup round trip.
+  var mTokEye = $("mtok-eye");
+  function mTokHide() {
+    tok.type = "password";
+    mTokEye.textContent = "Show";
+    mTokEye.setAttribute("aria-pressed", "false");
+    mTokEye.setAttribute("aria-label", "Show token");
+  }
+  mTokEye.addEventListener("click", function () {
+    var show = tok.type === "password";
+    if (!show) { mTokHide(); return; }
+    tok.type = "text";
+    mTokEye.textContent = "Hide";
+    mTokEye.setAttribute("aria-pressed", "true");
+    mTokEye.setAttribute("aria-label", "Hide token");
   });
   $("forget-btn").addEventListener("click", function () {
     forgetToken(); showSetup(); toast("Token forgotten.");
   });
 
-  function showSetup() { $("app").style.display = "none"; $("setup").style.display = "block"; }
+  function showSetup() { $("app").style.display = "none"; $("setup").style.display = "block"; mTokHide(); }
   function showApp() { $("setup").style.display = "none"; $("app").style.display = "flex"; applyAppClass(); }
 
   // ---- Byte-faithful base64 <-> UTF-8 (transport must not corrupt the blob) ----
@@ -5214,6 +5342,7 @@
       - ((VV ? Math.max(0, VV.offsetTop) : 0) + Math.min(VV ? VV.height : Infinity, d.clientHeight))) + "px");
     mWizReveal();                                 // the visible box moved -> re-park the field
     mListReveal();                                // OP-091 — same, for the lists surface
+    mSetupReveal();                               // OP-092 — same, for the setup screen
   }
   // Symmetric with mRelocate/mSegShell: nothing stamped on the way down survives the
   // way up. The vars are only read inside the media query, but leaving them set would
@@ -5250,6 +5379,45 @@
     setTimeout(mWizReveal, 0);
     setTimeout(mWizReveal, 260);
   });
+  // ---- OP-092 — the same job for the first-run setup screen ----
+  // The CSS half (sticky .msetup-act inside a --mvv-sized #setup) is what keeps the
+  // consent checkbox, the token field and Store above the keyboard by construction.
+  // This is the case sticky CANNOT cover: sticky is bounded by its own containing
+  // block, so if the consent card has been scrolled out of the scrollport entirely
+  // (the user is reading step 1 and taps the field via a browser's field-navigation
+  // arrows, or the keyboard opens while the screen is scrolled to the top), the group
+  // is simply off-screen. So park it by hand as well.
+  //
+  // scrollTop by hand, not scrollIntoView() — banned for the fourth time in this Epic:
+  // it also scrolls every scrollable ancestor, and it is unreliable for content inside
+  // a position:fixed, separately-scrolling container, which is exactly what #setup is
+  // below the breakpoint.
+  function mSetupReveal() {
+    if (!IS_MOBILE) return;
+    var box = $("setup"), grp = box.querySelector(".msetup-act");
+    if (!grp || box.style.display === "none") return;
+    var a = document.activeElement;
+    if (!a || !box.contains(a)) return;
+    var br = box.getBoundingClientRect(), gr = grp.getBoundingClientRect();
+    // How far down we must scroll to bring the group's BOTTOM (the Store button and
+    // the error line) inside the box, versus how far we CAN scroll before the group's
+    // TOP (the consent checkbox) leaves it. Take the smaller: AC-4 names all three, so
+    // pushing the checkbox off the top to reveal the button is not a fix. If the group
+    // is taller than the visible box, deltaTop wins and the checkbox stays anchored —
+    // the field is then the next thing down, which is what is being typed into.
+    var deltaBottom = gr.bottom - br.bottom + 8;
+    var deltaTop = gr.top - br.top - 8;
+    var d = Math.min(deltaBottom, deltaTop);
+    if (d > 0) box.scrollTop = Math.min(box.scrollHeight - box.clientHeight, box.scrollTop + d);
+  }
+  // Two shots, same reasoning as the intake form: the box we have now, and the box we
+  // will have once the keyboard's open animation finishes.
+  $("setup").addEventListener("focusin", function () {
+    if (!IS_MOBILE) return;
+    setTimeout(mSetupReveal, 0);
+    setTimeout(mSetupReveal, 260);
+  });
+
   // ‹ back and ✕ close both dismiss the form — the wireframe draws both, and on a phone
   // they are the two gestures a user reaches for. Blur first so the keyboard comes down
   // with the sheet instead of hanging over the board behind it.
