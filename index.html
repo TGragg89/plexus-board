@@ -504,9 +504,13 @@
      caption. Both only have meaning in the full-screen palette; the desktop overlay
      closes with Esc or a backdrop click and shows the ↑↓/↵/esc hints instead, so both
      are display:none here and the desktop palette is byte-identical (AC-2). */
+  /* OP-091's one added node — .mlist-seg, the Captures/Pie switcher. Desktop stacks
+     both lists in ONE shared scroll (OP-064's ruling) and needs no switcher, so it is
+     display:none here; renderCaptures()/renderPie()/renderRegisters() are untouched and
+     the desktop tables, forms and idea grid render byte-identically (AC-3). */
   .mtitle, .mscrim, .msheet, .mbar, .mseg-count, .mstatuspill,
   .mdet-back, .mdet-chips, .mdet-cap, .mac-disc, .mcopy,
-  .mwiz-back, .mwiz-x, .mgs-x, .mgs-cap { display: none; }
+  .mwiz-back, .mwiz-x, .mgs-x, .mgs-cap, .mlist-seg { display: none; }
   /* OP-090 — .gs-hd is a GROUPING box, not a mobile-only node: it must dissolve rather
      than hide, or the desktop palette loses its query and chips rows entirely. */
   .gs-hd { display: contents; }
@@ -1172,6 +1176,213 @@
     .gs-foot > span:nth-of-type(1), .gs-foot > span:nth-of-type(2),
     .gs-foot > span:nth-of-type(3) { display: none; }
     .gs-foot .mgs-cap { display: inline; order: -1; }
+
+    /* ==========================================================================
+       OP-091 (EP-031) — RESPONSIVE CAPTURES & PIE + REGISTERS.  Deliberately inside
+       OP-085's media query — ONE breakpoint (760px) for all of EP-031, never a second
+       value.  These are the LAST TWO of EP-031 AC-1's six surfaces.
+
+       LAYOUT ONLY.  renderCaptures() / renderPie() / renderRegisters() still build the
+       same tables, the same .addcap form and the same .ideacard grid, and every write
+       still runs doCaptureAdd / doCaptureNotesWrite / doPieAdd / doPieNotesWrite
+       verbatim — there is no second data path to drift.  What changes below the
+       breakpoint is how those nodes are laid out, plus ONE added node (.mlist-seg).
+
+       Visual contract: wireframe screens 2c "Captures & Pie (one surface)" and 3b
+       "Registers (CB / EP)"
+       (C:\Users\TJgra\My Drive\Plexus\Mockups\Plexus Mobile Wireframe (standalone)v2.html)
+       ========================================================================== */
+
+    /* ---- the Captures/Pie switcher (wireframe 2c) ----
+       Desktop stacks Captures ABOVE Pie in one shared scroll (OP-064's layout ruling).
+       A phone cannot show both, so the same two sections become two tabs of one
+       surface.  Sticky rather than fixed: it rides #surface-lists' own scroll, so it
+       needs no geometry of its own and cannot end up behind the keyboard. */
+    .mlist-seg {
+      display: flex; gap: 6px; position: sticky; top: 0; z-index: 4;
+      padding: 9px 12px; background: var(--bg); border-bottom: 1px solid var(--line);
+    }
+    .mlist-tab {
+      display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+      flex: 1; min-height: 38px; padding: 6px 10px; border-radius: 9px;
+      border: 1px solid var(--line); background: var(--panel2); color: var(--ink-dim);
+      font: 600 12px system-ui, -apple-system, sans-serif; cursor: pointer;
+    }
+    .mlist-tab .mlist-n {
+      background: var(--line); color: var(--ink-dim); border-radius: 4px;
+      padding: 1px 5px; font: 700 9px ui-monospace, Menlo, Consolas, monospace;
+    }
+    .mlist-tab.mactive { background: var(--accent-dim); border-color: var(--accent-dim); color: #fff; }
+    .mlist-tab.mactive .mlist-n { background: rgba(255, 255, 255, .22); color: #fff; }
+    body[data-mlist="pie"] #surface-captures,
+    body[data-mlist="captures"] #surface-pie { display: none; }
+
+    /* ---- section chrome ----
+       Wireframe 2c and 3b carry no breadcrumb, no "⤓ repo-canonical store" banner and
+       no explanatory paragraph; on a 390px screen those three run 15+ lines and push
+       every card below the fold.  All three are PROSE — nothing here is a control and
+       nothing becomes unreachable.  The `.reach + .ssub` selector is deliberate: it
+       matches only the DESCRIPTIVE paragraph (the one each renderer appends directly
+       after the reach banner) and never the Loading / "Connect a token" / "Couldn't
+       parse" messages, which are also .ssub and must keep showing. */
+    #surface-lists .crumb, #surface-lists .reach, #surface-lists .reach + .ssub,
+    #surface-registers .crumb, #surface-registers .reach, #surface-registers .reach + .ssub { display: none; }
+    /* Flex/grid children default to `min-width: auto`, i.e. "never narrower than my
+       longest unbreakable run". Real capture notes and Pie status cells carry Windows
+       paths (`C:\Users\TJgra\My Drive\...`), which blows a card out to ~560px and makes
+       the surface pan sideways — AC-1's "no horizontal scroll, no clipped content" fails
+       on the DATA, not the layout. Pinning min-width:0 down the chain, plus letting the
+       long runs break, is the fix; it is applied where the long strings actually land. */
+    #surface-lists .listsec { padding: 12px 12px 0; min-width: 0; }
+    /* the keyboard's scroll room (see --mvv-kb in mVVSync). Identical to OP-085's rule
+       whenever no keyboard is up, because the var falls back to 0px — including on every
+       desktop-width load, where mVVSync never runs and never sets it. */
+    #surface-lists { padding-bottom: calc(var(--mbar-h) + 26px + var(--mvv-kb, 0px)); }
+    #surface-registers { padding: 12px 12px calc(var(--mbar-h) + 26px); }
+    #surface-lists h2.shd, #surface-registers h2.shd { font-size: 15px; margin-bottom: 10px; }
+
+    /* ---- persistent quick-add (wireframe 2c) ----
+       Desktop keeps the "+ Add capture" disclosure; on a phone the quick-add IS the
+       point of the screen, so the form is always open and the disclosure button — whose
+       only job is to open it — steps aside.  The add path becomes MORE reachable, not
+       less.  This is the SAME .addcap node the renderers already build, with the same
+       Save handler: no second form, no second write path.  It sits at the top of the
+       tab, which is what keeps it above the keyboard by construction. */
+    #surface-lists .addcap.hidden { display: block !important; }
+    #surface-lists .addcap { padding: 10px 11px; margin-bottom: 12px; }
+    #surface-lists .toolbar { margin-bottom: 10px; }
+    #surface-lists .toolbar button { display: none; }
+    #surface-lists .addcap label { display: none; }     /* placeholders carry the labels */
+    /* …except the Pie form's Theme <select>, the one field with no placeholder to carry
+       it.  nth-of-type over the <label> children: 1=Idea 2=Theme 3=Notes. */
+    #surface-pie .addcap label:nth-of-type(2) { display: block; font-size: 10px; margin: 2px 0 3px; }
+    /* 16px is the iOS "do not zoom the page on focus" floor.  A zoom breaks every
+       visualViewport measurement mListReveal depends on — OP-089's lesson, and it
+       applies to contenteditable notes below just as much as to these inputs. */
+    #surface-lists .addcap input, #surface-lists .addcap textarea, #surface-lists .addcap select {
+      font-size: 16px; padding: 9px 11px; border-radius: 9px; margin-bottom: 7px;
+    }
+    #surface-lists .addcap textarea { min-height: 34px; }
+    #surface-lists .addcap .acts { margin-top: 2px; gap: 8px; }
+    #surface-lists .addcap .acts button { flex: 1; min-height: 42px; font-size: 13px; }
+
+    /* ---- captures: the .captbl table reflows into cards (wireframe 2c) ----
+       Five <td>s become a 2-column grid: id+title, the editable note and the
+       recommendation each span the full width; Source and Promote share the foot row.
+       display:grid on the <tr> keeps the table's DOM, its data-capid routing target and
+       every handler intact — only the boxes move. */
+    #surface-captures .captbl { border: none; background: none; border-radius: 0; }
+    #surface-captures .captbl tr:first-child { display: none; }        /* the <th> header row */
+    #surface-captures .captbl tr {
+      display: grid; grid-template-columns: 1fr auto; gap: 7px 10px; align-items: center;
+      margin-bottom: 9px; padding: 11px 12px; border-radius: 9px;
+      background: var(--panel); border: 1px solid var(--line);
+    }
+    #surface-captures .captbl td { display: block; border: none; padding: 0; min-width: 0; overflow-wrap: anywhere; }
+    #surface-captures .captbl td:nth-child(1),
+    #surface-captures .captbl td:nth-child(2),
+    #surface-captures .captbl td:nth-child(3) { grid-column: 1 / -1; }
+    #surface-captures .captbl td:nth-child(4) { grid-column: 1; }
+    #surface-captures .captbl td:nth-child(5) { grid-column: 2; justify-self: end; }
+    #surface-captures .captbl td:nth-child(5) button { min-height: 38px; }
+    #surface-captures .captbl .capid { font-size: 10px; }
+    #surface-captures .captbl .capttl { font-size: 13px; line-height: 1.35; text-wrap: pretty; }
+    #surface-captures .cap-notes { font-size: 16px; min-height: 34px; padding: 7px 9px; }
+
+    /* ---- Pie: one column of idea cards per theme (wireframe 2c) ----
+       .ideagrid's auto-fill/minmax already collapses to one column at 390px; pinning
+       1fr makes that a guarantee rather than an arithmetic coincidence. */
+    /* minmax(0, 1fr), not 1fr: a bare 1fr track still grows to its widest item's
+       min-content, which is exactly how the Pie status strings pushed the surface to
+       560px. minmax(0, …) caps the track at the container. */
+    #surface-pie .ideagrid { grid-template-columns: minmax(0, 1fr); gap: 9px; }
+    #surface-pie .theme-hd { margin: 14px 0 8px; }
+    #surface-pie .ideacard { padding: 11px 12px; border-radius: 9px; min-width: 0; }
+    #surface-pie .ideacard b { font-size: 13px; overflow-wrap: anywhere; }
+    #surface-pie .ideacard .im { font-size: 16px; line-height: 1.45; overflow-wrap: anywhere; }
+    #surface-pie .ideacard .im[contenteditable] { min-height: 32px; padding: 7px 9px; }
+    /* the status and the Promote button share a line on desktop; on a phone the status
+       can be a whole sentence, so let the pair wrap instead of forcing the card wider. */
+    #surface-pie .ideacard .irow { gap: 8px 10px; flex-wrap: wrap; align-items: center; }
+    #surface-pie .ideacard .istat { min-width: 0; flex: 1 1 100%; overflow-wrap: anywhere; }
+    #surface-pie .ideacard .irow button { min-height: 38px; margin-left: auto; }
+
+    /* ---- Registers: a FIXED ID column, everything else flows (wireframe 3b) ----
+       The wireframe draws each register row as a grid whose first column is a fixed
+       pixel width (52px CB / 50px EP) — that is what keeps the IDs scannable straight
+       down the left edge on a narrow screen.  Here the <tr> becomes a wrapping flex row
+       with the ID pinned at `flex: 0 0 56px`: it never shrinks and never wraps, the
+       title takes the rest of line one, and the remaining cells flow onto line two as a
+       quieter meta line.  Nothing is clipped and the page never scrolls sideways. */
+    #surface-registers .reftbl { border: none; background: none; border-radius: 0; }
+    #surface-registers .reftbl tr:first-child { display: none; }       /* the <th> header row */
+    #surface-registers .reftbl tr {
+      display: flex; flex-wrap: wrap; align-items: baseline; gap: 3px 8px;
+      margin-bottom: 7px; padding: 10px 12px; border-radius: 9px;
+      background: var(--panel); border: 1px solid var(--line);
+      cursor: pointer;                        /* the row opens the OP-088 detail sheet */
+    }
+    #surface-registers .reftbl td { display: block; border: none; padding: 0; }
+    /* THE fixed ID column.  td:first-child, not .capid — the CB table gives its
+       Execution cell the same .capid class, and that one belongs on the meta line. */
+    #surface-registers .reftbl td:first-child {
+      flex: 0 0 56px; font: 700 11px ui-monospace, Menlo, Consolas, monospace;
+      color: var(--ink-dim); white-space: nowrap;
+    }
+    /* the title / description fills the rest of line one, which is what forces the meta
+       cells onto line two — the line break is the flex basis, not an added node. */
+    #surface-registers .reftbl-ep td:nth-child(3),
+    #surface-registers .reftbl-cb td:nth-child(4) {
+      flex: 1 1 calc(100% - 64px); order: 1;
+      font-size: 12.5px; line-height: 1.35; color: var(--ink); text-wrap: pretty;
+    }
+    /* the meta line, in the wireframe's reading order.  --ink-dim, NOT --ink-faint:
+       measured, --ink-faint on --panel is the same 3.17:1 pairing that failed on the
+       OP-088 caret and again on the OP-090 mobile footer.  Twice is a pattern. */
+    /* the first meta cell is indented by the ID column's width + gap, so line two lands
+       under the title rather than under the ID — which is what makes the fixed column
+       read as a COLUMN down the page instead of just a first cell. The title's
+       `flex: 1 1 calc(100% - 64px)` guarantees it always fills line one, so the first
+       meta cell is always the one that starts line two. */
+    #surface-registers .reftbl-ep td:nth-child(2) { order: 2; margin-left: 64px; }
+    #surface-registers .reftbl-ep td:nth-child(4) { order: 3; }
+    #surface-registers .reftbl-cb td:nth-child(3) { order: 2; margin-left: 64px; }
+    #surface-registers .reftbl-cb td:nth-child(2) { order: 3; }
+    #surface-registers .reftbl-cb td:nth-child(5) { order: 4; }
+    #surface-registers .reftbl-ep td:nth-child(2), #surface-registers .reftbl-ep td:nth-child(4),
+    #surface-registers .reftbl-cb td:nth-child(2), #surface-registers .reftbl-cb td:nth-child(3),
+    #surface-registers .reftbl-cb td:nth-child(5) {
+      flex: 0 0 auto; font-size: 10.5px; color: var(--ink-dim);
+    }
+    #surface-registers .theme-hd { margin: 14px 0 8px; }
+    #surface-registers .legend-note { padding: 12px; margin-top: 16px; }
+    /* .cap-rec is `white-space: nowrap` on desktop, and it carries the CB block's long
+       "Canonical: Drive-side (C:\Users\...)" note — left nowrap that one line alone
+       would push the page sideways, which AC-1 forbids. */
+    #surface-registers .cap-rec { white-space: normal; line-height: 1.5; overflow-wrap: anywhere; }
+
+    /* ---- LOCK 11, third time in this Epic ----
+       Measured on this build: --ink-faint (#6b7785) is 3.59:1 on --panel and 4.06:1 on
+       --bg. Both are under AA's 4.5 for text at these sizes, and the mobile reflow
+       PROMOTES each of these lines into a card — the capture's Source and recommended
+       destination, the Pie card's status, the registers' "Next free" / canonical note.
+       On desktop they are marginal notes in a dense table; on a phone they are card
+       content, so they move to --ink-dim (6.67:1 on --panel). Inside the media query,
+       so the desktop tokens are untouched and AC-3 holds.
+       This was caught by nothing but the standing contrast pass — no geometry assertion
+       in this session's harness would ever have flagged it. */
+    #surface-lists .cap-rec, #surface-lists .capsrc, #surface-lists .toolbar .muted,
+    #surface-pie .ideacard .istat,
+    #surface-registers .cap-rec { color: var(--ink-dim); }
+    /* NOT fixed here, deliberately — two APP-WIDE pairings the same sweep measured, both
+       pre-existing and both failing on desktop too, so neither is OP-091's to change:
+         • .primary button text  #e6edf3 on --accent-dim = 3.92:1 (every primary button
+           in the app; #fff would make it 4.63:1)
+         • .colhead.mactive .cnt  #fff on rgba(255,255,255,.22) over --accent-dim
+           = 3.22:1 — OP-086's active segment badge, which .mlist-n above copies verbatim
+       Forking either one on this surface alone would leave the app visibly inconsistent
+       for the sake of two surfaces. Flagged for Tim as an ML-001 contrast batch instead;
+       .mlist-n keeps parity with OP-086 so the batch fixes both together. */
   }
 </style>
 </head>
@@ -1284,6 +1495,14 @@
   <!-- OP-064 layout fix (Decision_Log v2.38): Captures + Pie share ONE vertical scroll
        (stacked, one page) — the wrapper is the single flex child of #appmain. -->
   <div class="surface-lists hidden" id="surface-lists">
+    <!-- OP-091 — the phone's Captures/Pie switcher (wireframe 2c). display:none above
+         the 760px breakpoint (see the OP-091 CSS), so the desktop one-scroll stack is
+         untouched. The two sections below are NOT moved or re-rendered by it; it only
+         stamps body[data-mlist], and the CSS hides whichever section is not current. -->
+    <div class="mlist-seg" id="mlist-seg">
+      <button class="mlist-tab" id="mlist-tab-cap">Captures<span class="mlist-n" id="mlist-n-cap">0</span></button>
+      <button class="mlist-tab" id="mlist-tab-pie">Pie<span class="mlist-n" id="mlist-n-pie">0</span></button>
+    </div>
     <section class="surface listsec hidden" id="surface-captures"></section>
     <section class="surface listsec hidden" id="surface-pie"></section>
   </div>
@@ -4113,6 +4332,7 @@
     tbl.appendChild(hr);
     caps.forEach(function (c) { tbl.appendChild(captureRowEl(c)); });
     host.appendChild(tbl);
+    mListCounts();     // OP-091 — the switcher badges read what was just drawn
   }
   function captureRowEl(c) {
     var tr = el("tr");
@@ -4292,6 +4512,7 @@
       });
       host.appendChild(grid);
     });
+    mListCounts();     // OP-091 — the switcher badges read what was just drawn
   }
 
   // ---- Registers surface (read-only reference: EP_Register live, CB pointer) ----
@@ -4320,7 +4541,10 @@
       var nf = ln.match(/Next free number:\s*\**\s*(EP-\d{3})/i); if (nf) nextFree = nf[1];
     });
     if (rows.length) {
-      var tbl = el("table", "reftbl");
+      // OP-091 — reftbl-ep / reftbl-cb tell the two register tables apart. The mobile
+      // reflow places cells by position and the two tables' column orders differ; both
+      // classes are unstyled above the breakpoint, so desktop is untouched.
+      var tbl = el("table", "reftbl reftbl-ep");
       var hrow = el("tr"); ["EP", "Owner", "Title", "Allocated"].forEach(function (t) { hrow.appendChild(el("th", null, t)); }); tbl.appendChild(hrow);
       rows.forEach(function (r) { var tr = el("tr"); tr.setAttribute("data-regid", r.id); tr.appendChild(el("td", "capid", r.id)); tr.appendChild(el("td", null, r.owner)); tr.appendChild(el("td", null, r.title)); tr.appendChild(el("td", null, r.date)); tbl.appendChild(tr); });
       box.appendChild(tbl);
@@ -4339,11 +4563,15 @@
     } else if (STATE.cbRegRaw) {
       var cb = P.parseCbRegister(STATE.cbRegRaw);
       if (cb.rows.length) {
-        var ctbl = el("table", "reftbl");
+        var ctbl = el("table", "reftbl reftbl-cb");
         var chrow = el("tr"); ["CB", "Owner", "Execution", "Description", "Raised"].forEach(function (t) { chrow.appendChild(el("th", null, t)); }); ctbl.appendChild(chrow);
         cb.rows.forEach(function (r) {
           var tr = el("tr");
           tr.setAttribute("data-regid", r.id);   // OP-041 — global-search routing target
+          // OP-091 — a Strategic Goal is not itself a work item; the Epic named in its
+          // Execution column is the only board entity it points at, so that is what a
+          // tap on this row opens. Rows with no Execution stay inert (mRegOpen toasts).
+          if (r.exec && r.exec !== "—") tr.setAttribute("data-regexec", r.exec);
           tr.appendChild(el("td", "capid", r.id));
           tr.appendChild(el("td", null, r.owner));
           tr.appendChild(el("td", "capid", r.exec || "—"));
@@ -4622,13 +4850,15 @@
     }
     if (it.surface === "captures") {
       showSurface("lists");
-      gsFlashWhen(function () {
+      mListTab("captures");   // OP-091 — below the breakpoint the two lists are tabs, so
+      gsFlashWhen(function () {   // the hit's own tab has to be the one showing (no-op on desktop)
         return gsFindEl("#surface-captures tr[data-capid]", function (tr) { return tr.getAttribute("data-capid") === it.id; });
       });
       return;
     }
     if (it.surface === "pie") {
       showSurface("lists");
+      mListTab("pie");        // OP-091 — see above
       gsFlashWhen(function () {
         return gsFindEl("#surface-pie .ideacard[data-idea]", function (c) { return c.getAttribute("data-idea") === it.title; });
       });
@@ -4962,7 +5192,16 @@
     s.setProperty("--mvv-w", Math.min(VV ? VV.width : Infinity, d.clientWidth) + "px");
     s.setProperty("--mvv-t", Math.max(0, VV ? VV.offsetTop : 0) + "px");
     s.setProperty("--mvv-l", Math.max(0, VV ? VV.offsetLeft : 0) + "px");
+    // OP-091 — how much of the LAYOUT viewport the keyboard is covering at the bottom.
+    // A scroller can only park a field above the keyboard if it has somewhere left to
+    // scroll; at the end of a list it does not, so the LAST note stays behind the
+    // keyboard no matter how the reveal is computed. #surface-lists adds this inset to
+    // its padding-bottom, which buys exactly the scroll room the last row needs. It is
+    // 0px whenever no keyboard is up, so it changes nothing otherwise.
+    s.setProperty("--mvv-kb", Math.max(0, d.clientHeight
+      - ((VV ? Math.max(0, VV.offsetTop) : 0) + Math.min(VV ? VV.height : Infinity, d.clientHeight))) + "px");
     mWizReveal();                                 // the visible box moved -> re-park the field
+    mListReveal();                                // OP-091 — same, for the lists surface
   }
   // Symmetric with mRelocate/mSegShell: nothing stamped on the way down survives the
   // way up. The vars are only read inside the media query, but leaving them set would
@@ -4971,6 +5210,7 @@
     var s = document.documentElement.style;
     s.removeProperty("--mvv-h"); s.removeProperty("--mvv-w");
     s.removeProperty("--mvv-t"); s.removeProperty("--mvv-l");
+    s.removeProperty("--mvv-kb");                 // OP-091
   }
   // Keep the focused field inside the visible box. Scrolls #wiz-body's own scrollTop by
   // hand rather than calling scrollIntoView(), for two reasons: scrollIntoView also
@@ -5008,6 +5248,108 @@
   $("wiz-back").addEventListener("click", mWizClose);
   $("wiz-close").addEventListener("click", mWizClose);
 
+  // ====== OP-091 (EP-031) — CAPTURES & PIE + REGISTERS ON A PHONE ======
+  // The layout is CSS (see the OP-091 block). This is the part CSS cannot do: which of
+  // the two list sections is current, the counts on the two tabs, keeping the field you
+  // are typing into above the keyboard, and opening a register row's work item.
+  // Like the rest of the shell every function here no-ops unless IS_MOBILE, so a
+  // desktop-width load never stamps an attribute, a class or a localStorage key — that
+  // is what keeps AC-3 honest.
+  var MLIST_KEY = "plexus_mlist";
+  var MLIST = "captures";                       // Captures first: it is the write surface
+  try { var _ml = localStorage.getItem(MLIST_KEY); if (_ml === "captures" || _ml === "pie") MLIST = _ml; } catch (e) {}
+
+  function mListApply() {
+    if (!IS_MOBILE) return;
+    document.body.setAttribute("data-mlist", MLIST);
+    $("mlist-tab-cap").classList.toggle("mactive", MLIST === "captures");
+    $("mlist-tab-pie").classList.toggle("mactive", MLIST === "pie");
+  }
+  function mListTab(which) {
+    if (!IS_MOBILE) return;                     // desktop shows both; there is no tab
+    if (which !== "captures" && which !== "pie") return;
+    MLIST = which;
+    try { localStorage.setItem(MLIST_KEY, MLIST); } catch (e) {}
+    mListApply();
+  }
+  // Symmetric with mVVClear and mSegShell: nothing stamped on the way down survives the
+  // way up, so a desktop-width DOM carries no residue.
+  function mListShell(on) {
+    if (on) mListApply(); else document.body.removeAttribute("data-mlist");
+  }
+  // The badges read the numbers the two renderers JUST drew, so the switcher can never
+  // disagree with the list beneath it.
+  function mListCounts() {
+    var c = $("mlist-n-cap"), p = $("mlist-n-pie");
+    if (c) c.textContent = STATE.captures ? STATE.captures.model.captures.length : 0;
+    if (p) p.textContent = document.querySelectorAll("#surface-pie .ideacard").length;
+  }
+
+  // Keep the thing you are typing into inside the box the keyboard leaves visible.
+  // Same rule as OP-089's mWizReveal and for the same reasons — the scroller here is
+  // #surface-lists, and scrollIntoView() is again not used: it scrolls every scrollable
+  // ancestor, which on this surface drags the page as well.
+  // What gets parked is usually the WHOLE .addcap block, not the focused field: title,
+  // notes and the Save button are one unit, and revealing just the input would leave the
+  // button that commits it sitting behind the keyboard.
+  function mListReveal() {
+    if (!IS_MOBILE) return;
+    var box = $("surface-lists");
+    if (!box || box.classList.contains("hidden")) return;
+    var a = document.activeElement;
+    if (!a || !box.contains(a)) return;
+    var f = (a.closest && a.closest(".addcap")) || a;
+    // the visible band = the scroller's own box intersected with the visual viewport
+    var vvTop = VV ? Math.max(0, VV.offsetTop) : 0;
+    var vvH = Math.min(VV ? VV.height : Infinity, document.documentElement.clientHeight);
+    var br = box.getBoundingClientRect();
+    var top = Math.max(br.top, vvTop), band = Math.min(br.bottom, vvTop + vvH) - top;
+    if (band <= 0) return;
+    var r = f.getBoundingClientRect();
+    // Centre it; but a block taller than the band centres to a position that pushes its
+    // own top off-screen, so those top-align instead (mWizReveal's rule).
+    var want = (r.height > band) ? top + 8 : top + (band - r.height) / 2;
+    var next = box.scrollTop + (r.top - want);
+    box.scrollTop = Math.max(0, Math.min(box.scrollHeight - box.clientHeight, next));
+  }
+  // Two shots, as OP-089: now (the box we have) and after the keyboard's open animation
+  // (the box we will have). The visualViewport resize covers the same ground on browsers
+  // that fire it promptly; these make the reveal deterministic on the ones that do not.
+  $("surface-lists").addEventListener("focusin", function () {
+    if (!IS_MOBILE) return;
+    setTimeout(mListReveal, 0);
+    setTimeout(mListReveal, 260);
+  });
+  $("mlist-tab-cap").addEventListener("click", function () { mListTab("captures"); });
+  $("mlist-tab-pie").addEventListener("click", function () { mListTab("pie"); });
+
+  // A register row names a work item; on a phone the row IS the way into it (wireframe
+  // 3b). An EP row opens that Epic. A CB row opens the Epic named in its Execution
+  // column — a Strategic Goal is not itself a board entity, and that Epic is the only
+  // one it points at. openDrawer() presents whatever it is handed in the container
+  // detailMode() picks, which below the breakpoint is OP-088's full-screen sheet — so
+  // this reuses the detail path rather than forking a second one.
+  function mRegFind(id) {
+    var hit = null;
+    Object.keys(STATE.files).some(function (path) {
+      var f = STATE.files[path], rec = P.findRecord(f.model, id);
+      if (!rec) return false;
+      hit = decorate(rec, f.meta);
+      return true;
+    });
+    return hit;
+  }
+  $("surface-registers").addEventListener("click", function (e) {
+    if (!IS_MOBILE) return;                     // desktop rows stay the read-only ledger
+    var tr = e.target && e.target.closest && e.target.closest("tr[data-regid]");
+    if (!tr) return;
+    var id = tr.getAttribute("data-regexec") || tr.getAttribute("data-regid");
+    if (!/^EP-\d{3}$/.test(id || "")) { toast("No work item is coupled to this row."); return; }
+    var c = mRegFind(id);
+    if (!c) { toast(id + " isn't on the board yet — it is an allocated number only."); return; }
+    openDrawer(c);
+  });
+
   function applyShell() {
     if (MQ_MOBILE.matches === IS_MOBILE) return;          // no crossing -> no mutation
     IS_MOBILE = MQ_MOBILE.matches;
@@ -5020,6 +5362,11 @@
     // OP-089 — the intake sheet is sized from the visual viewport; seed those vars on
     // the way down and strip them on the way up (a desktop-width load never sets one).
     if (IS_MOBILE) mVVSync(); else mVVClear();
+    // OP-091 — the two list sections are tabs of one surface below the breakpoint and a
+    // single stacked scroll above it; stamp data-mlist on the way down, strip it on the
+    // way up (a desktop-width load never sets it).
+    mListShell(IS_MOBILE);
+    mListCounts();
     // OP-088 — detailMode() is derived from IS_MOBILE, so a card left open across the
     // crossing has to be re-presented in the container that is now correct: modal ->
     // full-screen sheet on the way down, sheet -> the persisted drawer/modal on the way
