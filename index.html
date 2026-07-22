@@ -679,7 +679,12 @@
     /* the WIP text would blow the pill's width — it moves to the count line below. */
     .colhead .wip { display: none; }
     .colhead.mactive { background: var(--accent-dim); border-color: var(--accent-dim); color: #fff; }
-    .colhead.mactive .cnt { background: rgba(255, 255, 255, .22); color: #fff; }
+    /* Darkened, not lightened. A white veil over --accent-dim composites to rgb(80,143,239),
+       which puts white text at 3.22:1 — below AA, and MOBILE-ONLY (`.mactive` is applied by
+       mSegApply(), which no-ops off mobile), so it fell inside EP-031 AC-4 rather than
+       outside it. rgba(0,0,0,.22) composites to rgb(24,87,183): 6.81:1, same "recessed
+       chip on a filled pill" reading. See the correction note at the end of this block. */
+    .colhead.mactive .cnt { background: rgba(0, 0, 0, .22); color: #fff; }
 
     /* ---- count line — its own row BELOW the picker (it cannot ride inside a
        nowrap scroller, so it is a sibling of .cols, not a child) ---- */
@@ -1213,7 +1218,9 @@
       padding: 1px 5px; font: 700 9px ui-monospace, Menlo, Consolas, monospace;
     }
     .mlist-tab.mactive { background: var(--accent-dim); border-color: var(--accent-dim); color: #fff; }
-    .mlist-tab.mactive .mlist-n { background: rgba(255, 255, 255, .22); color: #fff; }
+    /* Same fix, same reason as .colhead.mactive .cnt above — parity with OP-086 is kept,
+       it is just parity with the CORRECTED treatment (3.22:1 -> 6.81:1). */
+    .mlist-tab.mactive .mlist-n { background: rgba(0, 0, 0, .22); color: #fff; }
     body[data-mlist="pie"] #surface-captures,
     body[data-mlist="captures"] #surface-pie { display: none; }
 
@@ -1374,15 +1381,20 @@
     #surface-lists .cap-rec, #surface-lists .capsrc, #surface-lists .toolbar .muted,
     #surface-pie .ideacard .istat,
     #surface-registers .cap-rec { color: var(--ink-dim); }
-    /* NOT fixed here, deliberately — two APP-WIDE pairings the same sweep measured, both
-       pre-existing and both failing on desktop too, so neither is OP-091's to change:
-         • .primary button text  #e6edf3 on --accent-dim = 3.92:1 (every primary button
-           in the app; #fff would make it 4.63:1)
-         • .colhead.mactive .cnt  #fff on rgba(255,255,255,.22) over --accent-dim
-           = 3.22:1 — OP-086's active segment badge, which .mlist-n above copies verbatim
-       Forking either one on this surface alone would leave the app visibly inconsistent
-       for the sake of two surfaces. Flagged for Tim as an ML-001 contrast batch instead;
-       .mlist-n keeps parity with OP-086 so the batch fixes both together. */
+    /* CORRECTION (2026-07-22, same session): the OP-091 sweep originally recorded TWO
+       failures here as "app-wide, both failing on desktop too, so neither is OP-091's to
+       change". That was right about .primary and WRONG about the active-pill badge:
+       `.mactive` is applied only by mSegApply(), which returns early unless IS_MOBILE and
+       is stripped again on the way back up — so the badge is a MOBILE-ONLY node, and a
+       mobile-only contrast failure sits INSIDE EP-031 AC-4 ("the mobile UI honors the
+       Plexus visual language"), not outside it. The badge is therefore fixed above, in
+       both places (OP-086's .colhead.mactive .cnt and this build's .mlist-tab.mactive
+       .mlist-n), taking both from 3.22:1 to 6.81:1.
+       STILL not fixed here, and correctly so: .primary button text, #e6edf3 on
+       --accent-dim = 3.92:1 (#fff would make it 4.63:1). That one genuinely IS app-wide
+       and fails on desktop too, so changing it deliberately alters the desktop and
+       belongs in its own item with its own deploy test — tracked as OP-096 under ML-001
+       rather than ridden along silently inside a mobile epic. */
   }
 </style>
 </head>
