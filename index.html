@@ -500,9 +500,16 @@
      controls that only exist in the full-screen form; the desktop wizard closes with
      Cancel / Esc exactly as before, so both are display:none here and the desktop
      wizard's own nodes are untouched (AC-2). */
+  /* OP-090's added nodes — the search palette's ✕ close and its "Tap a result to open"
+     caption. Both only have meaning in the full-screen palette; the desktop overlay
+     closes with Esc or a backdrop click and shows the ↑↓/↵/esc hints instead, so both
+     are display:none here and the desktop palette is byte-identical (AC-2). */
   .mtitle, .mscrim, .msheet, .mbar, .mseg-count, .mstatuspill,
   .mdet-back, .mdet-chips, .mdet-cap, .mac-disc, .mcopy,
-  .mwiz-back, .mwiz-x { display: none; }
+  .mwiz-back, .mwiz-x, .mgs-x, .mgs-cap { display: none; }
+  /* OP-090 — .gs-hd is a GROUPING box, not a mobile-only node: it must dissolve rather
+     than hide, or the desktop palette loses its query and chips rows entirely. */
+  .gs-hd { display: contents; }
 
   @media (max-width: 760px) {
     :root { --mbar-h: 56px; }
@@ -1038,6 +1045,133 @@
       font: 600 9px system-ui, -apple-system, sans-serif; letter-spacing: .6px;
       color: var(--ink-faint);
     }
+
+    /* ==========================================================================
+       OP-090 (EP-031) — GLOBAL SEARCH: FULL-SCREEN + KEYBOARD-AWARE.
+       Deliberately inside OP-085's media query — ONE breakpoint (760px) for all of
+       EP-031, never a second value.
+
+       This is a PRESENTATION change, not a second search. gsBuildIndex(), gsHit(),
+       gsRender(), the chip scopes and gsRoute() are all OP-041's, untouched: the
+       mobile bottom-bar Search button proxy-clicks the SAME #gs-open, so there is one
+       palette, one index and one routing path. Below the breakpoint that palette
+       simply fills the screen instead of floating over it.
+
+       THE KEYBOARD IS THE DESIGN CONSTRAINT, HARDER HERE THAN ANYWHERE ELSE IN THE
+       EPIC. Search is a type-AND-read screen: the keyboard is up for the whole life
+       of the screen, and the thing you need to read — the results — renders directly
+       BELOW the input, which is exactly the band the keyboard covers. A palette sized
+       with 100vh/100dvh (or 80vh, as the desktop one is) resolves against the FULL
+       screen, because the on-screen keyboard OVERLAYS the layout viewport rather than
+       shrinking it. You would type a query and the matches would render behind the
+       keyboard: unreadable and untappable. So the panel is pinned to the
+       window.visualViewport box via the --mvv-* vars OP-089 already publishes (see
+       mVVSync in the JS), and the four explicit grid rows below make the RESULTS the
+       only row that absorbs the shrink — the query row and the footer count cannot be
+       pushed off, because they are not in the scroll flow.
+
+       Visual contract: wireframe screen 2b "Global search (from bottom bar)".
+       ========================================================================== */
+
+    /* ---- the palette: the EXISTING #gs-bg / .gs-panel, pinned to the visible box ---- */
+    /* Opaque, not a dimmed backdrop: with the keyboard up the panel is shorter than the
+       layout viewport, and the strip left behind should read as chrome rather than as a
+       half-visible board (same call OP-089 made for the intake sheet). */
+    #gs-bg { background: var(--bg); display: block; padding-top: 0; }
+    #gs-bg .gs-panel {
+      position: fixed; left: var(--mvv-l, 0px); top: var(--mvv-t, 0px);
+      width: var(--mvv-w, 100vw); height: var(--mvv-h, 100vh);
+      max-width: none; max-height: none;
+      border: none; border-radius: 0; box-shadow: none; background: var(--bg);
+      display: grid; grid-template-rows: auto minmax(0, 1fr) auto;  /* header · results · foot */
+    }
+
+    /* ---- header block: query row + chips, tinted, never scrolls (wireframe 2b) ---- */
+    .gs-hd {
+      display: block; grid-row: 1; background: var(--panel2);
+      border-bottom: 1px solid var(--line); padding: 10px 12px 0;
+    }
+    /* the query row becomes the wireframe's focused input pill */
+    .gs-hd .gs-inrow {
+      gap: 9px; padding: 0 11px; min-height: 44px; border-bottom: none;
+      background: var(--bg); border: 1px solid var(--accent); border-radius: 10px;
+      box-shadow: 0 0 0 3px rgba(68, 147, 248, .15);
+    }
+    .gs-hd .gs-inrow .gs-ic { font-size: 15px; color: var(--accent); }
+    /* 16px is not a style choice — below it iOS Safari zooms the page on focus, which
+       breaks every visualViewport measurement this block depends on (OP-089's lesson). */
+    #gs-input { font-size: 16px; }
+    /* "esc" is not a key a phone has; the ✕ button replaces it. */
+    .gs-hd .gs-inrow .gs-key { display: none; }
+    .gs-inrow .mgs-x {
+      display: inline-flex; align-items: center; justify-content: center; flex: none;
+      width: 26px; height: 26px; padding: 0; border-radius: 50%;
+      border: 1px solid var(--line); background: transparent; color: var(--ink-dim);
+      font: 400 16px/1 system-ui, -apple-system, sans-serif; cursor: pointer;
+    }
+
+    /* ---- chips: ONE horizontally-scrolling line (wireframe 2b) ----
+       Not a wrapped block. Five chips do not fit 390px, and every wrapped row costs
+       ~30px of the visible band the results need while the keyboard is up — the same
+       trade OP-086 settled for the status picker, and the wireframe draws it the same
+       way (`overflow-x:auto`, one line). Touch pans natively; the row is short enough
+       that a drag-scroll shim is not needed. */
+    .gs-hd .gs-chips {
+      flex-wrap: nowrap; gap: 6px; padding: 10px 0; border-bottom: none;
+      overflow-x: auto; overflow-y: hidden; touch-action: pan-x;
+      -webkit-overflow-scrolling: touch; overscroll-behavior-x: contain;
+      scrollbar-width: none;
+    }
+    .gs-hd .gs-chips::-webkit-scrollbar { width: 0; height: 0; }
+    .gs-hd .gs-chip { flex: none; padding: 6px 13px; font-size: 12.5px; }
+    /* The Project multiselect and Fields ▾ are desktop refinements of an already-scoped
+       list, and both open a `position:absolute` popup that a horizontally-scrolling row
+       would clip — a control you cannot see is worse than one that is not there. The
+       wireframe draws exactly the five type chips; AC-1 enumerates exactly those five;
+       project filtering still lives in the OP-085 filter sheet. Desktop keeps both. */
+    .gs-hd .gs-chips .gs-div, .gs-hd .gs-chips #gs-ms-project,
+    .gs-hd .gs-chips .gs-fields { display: none; }
+
+    /* ---- results: the ONLY row that absorbs the keyboard ----
+       position:relative makes this the offsetParent gsSetActive measures against;
+       overscroll-behavior:contain stops a flick past the last result from scrolling the
+       board underneath (which on iOS also drags the fixed panel out of place). */
+    .gs-results {
+      grid-row: 2; position: relative; padding: 8px 10px;
+      overscroll-behavior: contain; -webkit-overflow-scrolling: touch;
+    }
+    .gs-ghd { padding: 10px 4px 6px; font-size: 9.5px; letter-spacing: .6px; }
+    /* card rows with a project-coloured left edge (wireframe 2b). --gsc is set per row
+       by gsRowEl; it is a custom property, so it draws nothing on desktop, where
+       .gs-row's border stays `1px solid transparent`. */
+    .gs-row {
+      min-height: 48px; margin-bottom: 2px; padding: 10px; border-radius: 7px;
+      background: var(--panel2); border-color: var(--line);
+      border-left: 2px solid var(--gsc, var(--line));
+    }
+    .gs-row .gs-id { min-width: 46px; }
+    .gs-row .gs-ttl { font-size: 12px; }
+    .gs-row .gs-type { display: none; }        /* the group header already says the kind */
+
+    /* ---- footer: the wireframe's caption + live count ---- */
+    /* --ink-dim, not the --ink-faint the desktop footer and the wireframe both use.
+       Measured, that pairing is 3.17:1 on --panel2 — the EXACT ratio the OP-088 AC
+       caret shipped at and lost on Tim's first real-device look. There it was an
+       affordance and here it is a caption, but "Tap a result to open" is the only line
+       on the screen that states the interaction, and the count beside it is the live
+       feedback while typing. One step up puts both over 6:1. The wireframe's #6b7785 is
+       a mockup token read on a desktop monitor, not a contrast ruling; the RELATIONSHIP
+       it draws (caption and count the same weight, quieter than the results) holds. */
+    .gs-foot {
+      grid-row: 3; gap: 10px; background: var(--panel2); color: var(--ink-dim);
+      padding: 10px 14px calc(12px + env(safe-area-inset-bottom, 0px));
+    }
+    /* nth-of-type counts the <span> children: 1=↑↓ 2=↵ 3=esc 4=.gs-sp 5=#gs-summary
+       6=.mgs-cap. The three keyboard hints go; order:-1 floats the caption ahead of the
+       spacer so the count stays hard right, as drawn. */
+    .gs-foot > span:nth-of-type(1), .gs-foot > span:nth-of-type(2),
+    .gs-foot > span:nth-of-type(3) { display: none; }
+    .gs-foot .mgs-cap { display: inline; order: -1; }
   }
 </style>
 </head>
@@ -1226,13 +1360,25 @@
      C:\Users\TJgra\My Drive\Plexus\Mockups\Global Search.html -->
 <div class="hidden" id="gs-bg">
   <div class="gs-panel" role="dialog" aria-modal="true" aria-label="Global search">
-    <div class="gs-inrow">
-      <span class="gs-ic" aria-hidden="true">🔍</span>
-      <input type="text" id="gs-input" placeholder="Search work items, captures, pie, registers…"
-             autocomplete="off" spellcheck="false" aria-label="Search query" />
-      <span class="gs-key">esc</span>
+    <!-- OP-090 — .gs-hd groups the query row and the chips row into the wireframe-2b
+         header block. It is `display:contents` above the breakpoint, so on desktop the
+         two rows remain direct flex children of .gs-panel exactly as before (the box is
+         transparent to layout) and only below 760px does it become a real grid row with
+         its own tint and border. Same dissolve trick OP-088 used on the detail rail. -->
+    <div class="gs-hd">
+      <div class="gs-inrow">
+        <span class="gs-ic" aria-hidden="true">🔍</span>
+        <input type="text" id="gs-input" placeholder="Search work items, captures, pie, registers…"
+               autocomplete="off" spellcheck="false" aria-label="Search query"
+               inputmode="search" enterkeyhint="search" />
+        <span class="gs-key">esc</span>
+        <!-- OP-090 — the phone's close affordance (wireframe 2b). Desktop closes with
+             Esc or a click on the backdrop, neither of which exists on a full-screen
+             palette; display:none above the breakpoint. -->
+        <button class="mgs-x" id="gs-x" type="button" aria-label="Close search" title="Close">×</button>
+      </div>
+      <div class="gs-chips" id="gs-chips"></div>
     </div>
-    <div class="gs-chips" id="gs-chips"></div>
     <div class="gs-results" id="gs-results"></div>
     <div class="gs-foot">
       <span><b>↑↓</b> navigate</span>
@@ -1240,6 +1386,9 @@
       <span><b>esc</b> close</span>
       <span class="gs-sp"></span>
       <span id="gs-summary"></span>
+      <!-- OP-090 — replaces the three keyboard hints below the breakpoint (wireframe 2b).
+           Last in source order so the desktop spans keep their nth-of-type positions. -->
+      <span class="mgs-cap">Tap a result to open</span>
     </div>
   </div>
 </div>
@@ -4342,6 +4491,11 @@
   // ---- results ----
   function gsRowEl(it, q) {
     var r = el("div", "gs-row");
+    // OP-090 — the project colour, published as a CUSTOM PROPERTY rather than written
+    // to border-left-color directly. Below the breakpoint the row draws it as a 2px
+    // left edge (wireframe 2b); on desktop nothing reads --gsc, so the row's border
+    // stays `1px solid transparent` and the desktop palette is untouched (AC-2).
+    if (it.color) r.style.setProperty("--gsc", it.color);
     if (GS_SHOW.id && it.id) { var idn = el("span", "gs-id"); idn.appendChild(gsMark(it.id, q)); r.appendChild(idn); }
     var t = el("span", "gs-ttl"); t.appendChild(gsMark(it.title, q)); r.appendChild(t);
     if (it.surface === "work") {
@@ -4416,6 +4570,18 @@
     if (i > GS_ROWS.length - 1) i = GS_ROWS.length - 1;
     GS_ROWS.forEach(function (r, n) { r.node.classList.toggle("on", n === i); });
     GS_ACTIVE = i;
+    // OP-090 — on mobile the results are a scroller inside a position:fixed panel, and
+    // scrollIntoView() also scrolls every scrollable ANCESTOR (the OP-086 lesson — it
+    // yanks the board around, and on iOS drags the fixed panel off the visual viewport).
+    // gsRender() re-activates row 0 on every keystroke, so that would fire on each
+    // character typed. Scroll #gs-results' own scrollTop by hand instead.
+    if (IS_MOBILE) {
+      var host = $("gs-results"), n = GS_ROWS[i].node;
+      var top = n.offsetTop, bot = top + n.offsetHeight;
+      if (top < host.scrollTop) host.scrollTop = Math.max(0, top - 8);
+      else if (bot > host.scrollTop + host.clientHeight) host.scrollTop = bot - host.clientHeight + 8;
+      return;
+    }
     try { GS_ROWS[i].node.scrollIntoView({ block: "nearest" }); } catch (e) {}
   }
   function gsMove(d) { if (GS_ROWS.length) gsSetActive(GS_ACTIVE < 0 ? 0 : GS_ACTIVE + d); }
@@ -4480,16 +4646,27 @@
     if (GS_OPEN_STATE) return;
     GS_OPEN_STATE = true;
     $("gs-bg").classList.remove("hidden");
+    // OP-090 — the panel is sized from the visual viewport below the breakpoint, so make
+    // sure those vars describe the box we are about to open into. mVVSync is a no-op off
+    // mobile, and the visualViewport resize keeps them current once the keyboard opens.
+    if (IS_MOBILE) mVVSync();
     gsBuildChips();
     gsRender();
     var inp = $("gs-input");
     inp.focus(); inp.select();
+    // Two more shots after the keyboard's open animation: the visualViewport resize
+    // covers the same ground on browsers that fire it promptly, these make the shrink
+    // deterministic on the ones that do not (OP-089's mWizReveal pattern).
+    if (IS_MOBILE) { setTimeout(mVVSync, 0); setTimeout(mVVSync, 260); }
   }
   function gsClose() {
     if (!GS_OPEN_STATE) return;
     GS_OPEN_STATE = false;
     closeAllMS();
     if (GS_FIELDS_POP) GS_FIELDS_POP.classList.add("hidden");
+    // OP-090 — drop the keyboard with the palette, so it does not hang over whatever the
+    // result routed to (same reason mWizClose blurs before closing the intake sheet).
+    if (IS_MOBILE && document.activeElement && document.activeElement.blur) document.activeElement.blur();
     $("gs-bg").classList.add("hidden");
   }
   // "/" must stay a literal slash inside any text field — including the contenteditable
@@ -4875,6 +5052,7 @@
   applyShell();
 
   $("gs-open").addEventListener("click", gsOpen);
+  $("gs-x").addEventListener("click", gsClose);          // OP-090 — the phone's Esc
   $("gs-input").addEventListener("input", gsRender);
   $("gs-bg").addEventListener("click", function (e) { if (e.target === this) gsClose(); });
   // Close the Fields ▾ popup on an outside click (closeAllMS only knows the MS registry).
