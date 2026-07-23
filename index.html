@@ -514,7 +514,8 @@
      here (AC-3). Its wrapper .msetup-act dissolves rather than hides — see below. */
   .mtitle, .mscrim, .msheet, .mbar, .mseg-count, .mstatuspill,
   .mdet-back, .mdet-chips, .mdet-cap, .mac-disc, .mcopy,
-  .mwiz-back, .mwiz-x, .mgs-x, .mgs-cap, .mlist-seg, .mtok-eye { display: none; }
+  .mwiz-back, .mwiz-x, .mgs-x, .mgs-cap, .mlist-seg, .mtok-eye,
+  .mgs-opts, #gsopts-scrim { display: none; }   /* OP-095 — mobile search-options controls */
   /* OP-090 — .gs-hd is a GROUPING box, not a mobile-only node: it must dissolve rather
      than hide, or the desktop palette loses its query and chips rows entirely. */
   /* OP-092 — .msetup-act is the same shape: a wrapper added so the mobile setup screen
@@ -1140,11 +1141,12 @@
     }
     .gs-hd .gs-chips::-webkit-scrollbar { width: 0; height: 0; }
     .gs-hd .gs-chip { flex: none; padding: 6px 13px; font-size: 12.5px; }
-    /* The Project multiselect and Fields ▾ are desktop refinements of an already-scoped
-       list, and both open a `position:absolute` popup that a horizontally-scrolling row
-       would clip — a control you cannot see is worse than one that is not there. The
-       wireframe draws exactly the five type chips; AC-1 enumerates exactly those five;
-       project filtering still lives in the OP-085 filter sheet. Desktop keeps both. */
+    /* The Project multiselect and Fields ▾ both open a `position:absolute` popup that a
+       horizontally-scrolling row would clip, so they never live in .gs-chips on a phone.
+       OP-095 does NOT simply hide them: gsOptsPlace() relocates the SAME two nodes into
+       the search-options sheet below (where a popup has room), and moves them back here
+       above the breakpoint. This rule is the safety net for the frame before relocation
+       and for the .gs-div separator, which stays in the scroller (hidden) either way. */
     .gs-hd .gs-chips .gs-div, .gs-hd .gs-chips #gs-ms-project,
     .gs-hd .gs-chips .gs-fields { display: none; }
 
@@ -1188,6 +1190,53 @@
     .gs-foot > span:nth-of-type(1), .gs-foot > span:nth-of-type(2),
     .gs-foot > span:nth-of-type(3) { display: none; }
     .gs-foot .mgs-cap { display: inline; order: -1; }
+
+    /* ==========================================================================
+       OP-095 (EP-031) — the search Project filter + Fields ▾, restored on mobile.
+       OP-090 could only hide both below the breakpoint: each opens a
+       position:absolute popup that the horizontally-scrolling .gs-chips row clips.
+       Rather than un-hide them into that scroller (which would reproduce the clip),
+       the SAME two nodes — the same buildMS widget bound to MS["gsproject"], the
+       same GS_SHOW Fields control — are relocated by gsOptsPlace() into a dedicated
+       search-options sheet on the OP-085 .msheet chrome, where an absolute popup has
+       room (see the min-height note below). Nothing here is a fork, so
+       gsRender() still reads one source of truth (AC-2). Desktop keeps both in
+       #gs-chips, untouched (AC-4). Deliberately inside OP-085's 760px query.
+       ========================================================================== */
+
+    /* trigger: a labelled pill in the focused query row (never the scroller). Its .on
+       dot lights whenever a project is selected or a field is switched off, so a filter
+       set in the sheet stays visible after the sheet closes (OP-088 lesson — feedback,
+       not a bare glyph). */
+    .mgs-opts {
+      display: inline-flex; align-items: center; gap: 6px; flex: none;
+      padding: 0 12px; height: 32px; border-radius: 9px;
+      border: 1px solid var(--line); background: var(--panel2); color: var(--ink);
+      font: 600 12.5px system-ui, -apple-system, sans-serif; cursor: pointer;
+    }
+    .mgs-opts .mgs-dot { flex: none; width: 6px; height: 6px; border-radius: 50%; background: transparent; }
+    .mgs-opts.on .mgs-dot { background: var(--accent); }
+
+    /* the sheet must clear the z-index:60 search overlay; its own scrim sits between the
+       two. Everything else is the shared .msheet language (grip, header, Done). */
+    #gsopts { z-index: 62; }
+    #gsopts-scrim {
+      display: block; position: fixed; inset: 0; background: rgba(4, 6, 10, .55);
+      z-index: 61; opacity: 0; pointer-events: none; transition: opacity .18s ease;
+    }
+    body.gsopts-open #gsopts-scrim { opacity: 1; pointer-events: auto; }
+    body.gsopts-open #gsopts { transform: translateY(0); }
+    /* room for the tallest option list so no open .ms-pop is clipped (AC-1). The filter
+       sheet reserves 44vh, but it carries ~6 controls that grow it well past that floor;
+       this sheet holds only two rows, so at the 44vh floor its controls sit low enough
+       that the 10-project popup (max-height 320px) overruns the fold. 56vh lifts the two
+       rows high enough that the tallest popup clears the bottom of the screen. */
+    #gsopts .msheet-body { min-height: 56vh; }
+    .gsopt-row { display: flex; align-items: center; gap: 12px; padding: 12px 2px; border-bottom: 1px solid var(--line); }
+    .gsopt-row:last-child { border-bottom: none; }
+    .gsopt-lab { flex: none; min-width: 108px; font-size: 12.5px; font-weight: 600; color: var(--ink-dim); }
+    #gsopts-body .ms-btn { padding: 8px 26px 8px 12px; font-size: 13px; border-radius: 16px; max-width: 54vw; }
+    #gsopts-body .ms-pop label { padding: 9px 8px; }
 
     /* ==========================================================================
        OP-091 (EP-031) — RESPONSIVE CAPTURES & PIE + REGISTERS.  Deliberately inside
@@ -1711,6 +1760,11 @@
                autocomplete="off" spellcheck="false" aria-label="Search query"
                inputmode="search" enterkeyhint="search" />
         <span class="gs-key">esc</span>
+        <!-- OP-095 — opens the search-options sheet (Project filter + Fields ▾). Mobile
+             only; on desktop those controls live in the chips row. The dot lights when a
+             filter is active. -->
+        <button class="mgs-opts" id="gs-opts-btn" type="button"
+                aria-label="Search options — project and return fields" title="Project &amp; fields"><span class="mgs-dot" aria-hidden="true"></span>Options</button>
         <!-- OP-090 — the phone's close affordance (wireframe 2b). Desktop closes with
              Esc or a click on the backdrop, neither of which exists on a full-screen
              palette; display:none above the breakpoint. -->
@@ -1772,6 +1826,21 @@
   <div class="msheet-body">
     <div id="mmove-cur"></div>
     <div id="mmove-list"></div>
+  </div>
+</div>
+
+<!-- Search-options sheet (OP-095) — below the breakpoint the global search's Project
+     multiselect (#gs-ms-project, the same buildMS widget bound to MS["gsproject"]) and
+     its Fields ▾ toggle (GS_SHOW) are relocated here by gsOptsPlace(), out of the
+     clipping .gs-chips scroller. Same nodes, no fork; moved back into #gs-chips above the
+     breakpoint. Its own scrim + z-index clear the z:60 search overlay (OP-095 CSS). -->
+<div id="gsopts-scrim"></div>
+<div class="msheet" id="gsopts" role="dialog" aria-modal="true" aria-label="Search options">
+  <span class="mgrip"></span>
+  <div class="msheet-hd"><h4>Search options</h4><button class="msheet-done" id="gsopts-done">Done</button></div>
+  <div class="msheet-body" id="gsopts-body">
+    <div class="gsopt-row"><span class="gsopt-lab">Filter by project</span><span class="gsopt-slot" id="gsopts-project"></span></div>
+    <div class="gsopt-row"><span class="gsopt-lab">Return fields</span><span class="gsopt-slot" id="gsopts-fields"></span></div>
   </div>
 </div>
 
@@ -4810,7 +4879,7 @@
 
   // ---- chips row: surface scopes + Project multiselect + Fields ▾ ----
   function gsFieldsControl() {
-    var wrap = el("span", "ms gs-fields");
+    var wrap = el("span", "ms gs-fields"); wrap.id = "gs-fields";   // OP-095 — relocation handle
     var btn = el("button", "ms-btn", "Fields"); btn.type = "button";
     var pop = el("div", "ms-pop hidden");
     pop.appendChild(el("div", "gs-fhd", "Return fields"));
@@ -4854,6 +4923,39 @@
       OPS_FILES.map(function (f) { return { value: f.project, label: f.project }; }),
       "Project", null, function () { gsRender(); });
     host.appendChild(gsFieldsControl());
+    gsOptsPlace(IS_MOBILE);   // OP-095 — below the breakpoint they belong in the sheet
+  }
+
+  // ---- OP-095 — the search-options sheet: Project filter + Fields ▾ on mobile ----
+  // Relocates the SAME two nodes between #gs-chips (desktop) and the sheet (mobile),
+  // mirroring mRelocate. No forked copy, so gsRender() keeps reading one MS["gsproject"]
+  // / GS_SHOW (AC-2); desktop leaves them in the chips row untouched (AC-4).
+  function gsOptsPlace(toMobile) {
+    if (!GS_CHIPS_BUILT) return;
+    var proj = $("gs-ms-project"), fields = $("gs-fields");
+    if (!proj || !fields) return;
+    if (toMobile) { $("gsopts-project").appendChild(proj); $("gsopts-fields").appendChild(fields); }
+    else { var host = $("gs-chips"); host.appendChild(proj); host.appendChild(fields); }
+  }
+  // A project selection or any switched-off field lights the trigger's dot, so a filter
+  // set inside the sheet is still visible once it closes (OP-088 lesson).
+  function gsOptsActive() {
+    var n = (MS["gsproject"] && MS["gsproject"].sel.size) || 0;
+    return n > 0 || GS_FIELDS.some(function (d) { return !GS_SHOW[d[0]]; });
+  }
+  // The sheet is bottom-anchored: dropping the keyboard first keeps it clear of the sheet
+  // AND keeps the results behind it at full height (AC-3). Closing re-focuses the query —
+  // whose value was never touched — so the typed text survives the round trip (AC-3).
+  function gsOptsOpen() {
+    gsBuildChips();
+    if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+    document.body.classList.add("gsopts-open");
+  }
+  function gsOptsClose(refocus) {
+    if (!document.body.classList.contains("gsopts-open")) return;
+    document.body.classList.remove("gsopts-open");
+    closeAllMS(); if (GS_FIELDS_POP) GS_FIELDS_POP.classList.add("hidden");
+    if (refocus !== false && GS_OPEN_STATE) { var inp = $("gs-input"); if (inp) inp.focus(); }
   }
 
   // ---- results ----
@@ -4882,6 +4984,7 @@
     var q = rawQ.toLowerCase();
     var idx = GS_INDEX || gsBuildIndex();
     var projSel = (MS["gsproject"] && MS["gsproject"].sel) || new Set();
+    var ob = $("gs-opts-btn"); if (ob) ob.classList.toggle("on", gsOptsActive());   // OP-095
 
     if (!q) {   // AC-8 — empty query: hint + per-surface counts
       host.appendChild(el("div", "gs-hint", "Type to search across all surfaces."));
@@ -5032,6 +5135,7 @@
   function gsClose() {
     if (!GS_OPEN_STATE) return;
     GS_OPEN_STATE = false;
+    document.body.classList.remove("gsopts-open");   // OP-095 — the sheet goes with the palette
     closeAllMS();
     if (GS_FIELDS_POP) GS_FIELDS_POP.classList.add("hidden");
     // OP-090 — drop the keyboard with the palette, so it does not hang over whatever the
@@ -5552,6 +5656,10 @@
     // full-screen sheet on the way down, sheet -> the persisted drawer/modal on the way
     // back up. No-op when nothing is open.
     reopenDetail();
+    // OP-095 — move the search Project/Fields controls to whichever home the new width
+    // wants, and close the transient sheet on the way across (no-op until search is built).
+    gsOptsPlace(IS_MOBILE);
+    document.body.classList.remove("gsopts-open");
   }
 
   $("mbtn-nav").addEventListener("click", function () { mToggle("mnav-open"); });
@@ -5580,6 +5688,9 @@
 
   $("gs-open").addEventListener("click", gsOpen);
   $("gs-x").addEventListener("click", gsClose);          // OP-090 — the phone's Esc
+  $("gs-opts-btn").addEventListener("click", gsOptsOpen); // OP-095 — open the options sheet
+  $("gsopts-done").addEventListener("click", function () { gsOptsClose(true); });
+  $("gsopts-scrim").addEventListener("click", function () { gsOptsClose(true); });
   $("gs-input").addEventListener("input", gsRender);
   $("gs-bg").addEventListener("click", function (e) { if (e.target === this) gsClose(); });
   // Close the Fields ▾ popup on an outside click (closeAllMS only knows the MS registry).
